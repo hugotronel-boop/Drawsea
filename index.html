@@ -1,198 +1,166 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/><meta name='viewport' content='width=device-width, initial-scale=1'/>
-<!DOCTYPE html>
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Aquarium magique 🐠</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Touch Particles</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <canvas id="aquarium"></canvas>
+<canvas id="canvas"></canvas>
 
-  <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
-</html><style>html, body {
+</html><style>* {
   margin: 0;
   padding: 0;
-  overflow: hidden;
-  background: #003;
-  font-family: system-ui;
+  box-sizing: border-box;
 }
 
-#fileInput {
-  position: fixed;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  font-size: 16px;
+html, body {
+  overflow: hidden;
+  background: black;
+  height: 100%;
+  touch-action: none;
 }
 
 canvas {
   display: block;
-  background: linear-gradient(#0066aa, #001f33);
-}</style><script>// ============================
-// CANVAS & POISSONS
-// ============================
-const canvas = document.getElementById("aquarium");
+}</style><script>const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-resizeCanvas();
 
+resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
+
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
 
-// Canvas derrière tout
-canvas.style.position = "fixed";
-canvas.style.top = "0";
-canvas.style.left = "0";
-canvas.style.width = "100%";
-canvas.style.height = "100%";
-canvas.style.zIndex = "-1";
+// =====================
+// PARTICULE
+// =====================
 
-// ============================
-// TABLEAU POISSONS
-// ============================
-let fishes = [];
+class Particle {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.color = color;
 
-// ============================
-// TOUCH COORDONNÉES
-// ============================
-let touchX = -1000;
-let touchY = -1000;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 8 + 4;
 
-window.addEventListener("touchstart", e => {
-  const t = e.touches[0];
-  touchX = t.clientX;
-  touchY = t.clientY;
-});
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
 
-window.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  touchX = t.clientX;
-  touchY = t.clientY;
-});
-
-window.addEventListener("touchend", () => {
-  touchX = -1000;
-  touchY = -1000;
-});
-
-// ============================
-// CLASSE POISSON
-// ============================
-class Fish {
-  constructor(img) {
-    this.img = img;
-    this.size = 150;
-    this.x = Math.random() * canvas.width;
-    this.y = Math.random() * canvas.height;
-    this.vx = (Math.random() * 2 - 1) * 1.5;
-    this.vy = (Math.random() * 2 - 1) * 1.5;
-    this.angle = 0;
+    this.size = Math.random() * 4 + 2;
+    this.life = 200;
   }
 
   update() {
     this.x += this.vx;
     this.y += this.vy;
 
-    // Rebond sur les bords
-    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-
-    // Rotation pour effet nage
-    this.angle = Math.atan2(this.vy, this.vx);
-
-    // Interaction tactile : le poisson fuit le doigt
-    const dx = this.x - touchX;
-    const dy = this.y - touchY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    if(dist < this.size*1.2){ // rayon de détection
-      const force = 3; // vitesse pour s’éloigner
-      this.vx = (dx / dist) * force;
-      this.vy = (dy / dist) * force;
+    // 🔥 REBOND HORIZONTAL
+    if (this.x <= this.size) {
+      this.x = this.size;
+      this.vx *= -0.9;
     }
+
+    if (this.x >= canvas.width - this.size) {
+      this.x = canvas.width - this.size;
+      this.vx *= -0.9;
+    }
+
+    // 🔥 REBOND VERTICAL
+    if (this.y <= this.size) {
+      this.y = this.size;
+      this.vy *= -0.9;
+    }
+
+    if (this.y >= canvas.height - this.size) {
+      this.y = canvas.height - this.size;
+      this.vy *= -0.9;
+    }
+
+    // Légère friction
+    this.vx *= 0.995;
+    this.vy *= 0.995;
+
+    this.life--;
   }
 
   draw() {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
-    ctx.drawImage(this.img, -this.size/2, -this.size/2, this.size, this.size);
-    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.color}, 100%, 60%, ${this.life / 200})`;
+    ctx.fill();
   }
 }
 
-// ============================
-// INPUT POUR IMPORTER UNE IMAGE
-// ============================
-const fishInput = document.createElement("input");
-fishInput.type="file";
-fishInput.accept="image/*";
-fishInput.style.position="fixed";
-fishInput.style.bottom="20px";
-fishInput.style.left="50%";
-fishInput.style.transform="translateX(-50%)";
-fishInput.style.zIndex="100";
-fishInput.style.padding="10px";
-fishInput.style.borderRadius="12px";
-fishInput.style.background="#e9a89b";
-fishInput.style.color="#fff";
-fishInput.style.border="none";
-fishInput.style.cursor="pointer";
-document.body.appendChild(fishInput);
+let particles = [];
 
-// ============================
-// IMPORT & NETTOYAGE DU BLANC
-// ============================
-fishInput.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+// =====================
+// GÉNÉRATION AU TOUCH
+// =====================
 
-  const img = new Image();
-  img.onload = () => {
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = img.width;
-    tempCanvas.height = img.height;
-    const tctx = tempCanvas.getContext("2d");
-    tctx.drawImage(img, 0, 0);
+function createExplosion(x, y) {
+  const randomColor = Math.floor(Math.random() * 360);
 
-    const imgData = tctx.getImageData(0, 0, img.width, img.height);
-    const tolerance = 240;
+  for (let i = 0; i < 60; i++) {
+    particles.push(new Particle(x, y, randomColor));
+  }
+}
 
-    for (let i = 0; i < imgData.data.length; i += 4) {
-      if (imgData.data[i] > tolerance && imgData.data[i+1] > tolerance && imgData.data[i+2] > tolerance) {
-        imgData.data[i+3] = 0;
-      }
-    }
+// =====================
+// VIBRATION
+// =====================
 
-    tctx.putImageData(imgData, 0, 0);
+function vibrate(duration = 15) {
+  if (navigator.vibrate) {
+    navigator.vibrate(duration);
+  }
+}
 
-    const finalImg = new Image();
-    finalImg.onload = () => {
-      const fish = new Fish(finalImg);
-      const maxDim = Math.min(canvas.width, canvas.height) / 3;
-      if(finalImg.width > maxDim || finalImg.height > maxDim) fish.size = maxDim;
-      fishes.push(fish);
-    };
-    finalImg.src = tempCanvas.toDataURL("image/png");
-  };
-  img.src = URL.createObjectURL(file); // plus fiable sur mobile
+// =====================
+// EVENTS
+// =====================
+
+canvas.addEventListener("touchstart", (e) => {
+  const touch = e.touches[0];
+  createExplosion(touch.clientX, touch.clientY);
+  vibrate(20); // vibration au toucher
 });
 
-// ============================
+canvas.addEventListener("touchmove", (e) => {
+  const touch = e.touches[0];
+  createExplosion(touch.clientX, touch.clientY);
+});
+
+// Pour tester sur ordi
+canvas.addEventListener("click", (e) => {
+  createExplosion(e.clientX, e.clientY);
+  vibrate(20);
+});
+
+// =====================
 // ANIMATION
-// ============================
+// =====================
+
 function animate() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  fishes.forEach(fish => {
-    fish.update();
-    fish.draw();
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  particles.forEach((p, index) => {
+    p.update();
+    p.draw();
+
+    if (p.life <= 0) {
+      particles.splice(index, 1);
+    }
   });
+
   requestAnimationFrame(animate);
 }
 
