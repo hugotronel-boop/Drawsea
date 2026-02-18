@@ -1,16 +1,37 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Touch Particles</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Touch Particles</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<canvas id="canvas"></canvas>
+  <canvas id="canvas"></canvas>
 
-<script src="script.js"></script>
+  <!-- Bouton Réglages -->
+  <button id="settingsBtn">⚙️</button>
+
+  <!-- Overlay popup -->
+  <div id="overlay">
+    <div id="popup">
+      <h3>Paramètres</h3>
+      <label>
+        <input type="checkbox" id="bounceToggle" checked>
+        Activer les rebonds
+      </label>
+      <br><br>
+      <label>
+        <input type="checkbox" id="soundToggle" checked>
+        Activer le son
+      </label>
+      <br>
+      <button id="validateBtn">Valider</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html><style>* {
   margin: 0;
@@ -27,8 +48,61 @@ html, body {
 
 canvas {
   display: block;
+}
+
+/* Bouton réglage */
+#settingsBtn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 50px;
+  font-size: 16px;
+  z-index: 10;
+}
+
+/* Overlay */
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+}
+
+/* Popup */
+#popup {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  width: 250px;
+}
+
+#popup button {
+  margin-top: 15px;
+  padding: 8px 15px;
+  border: none;
+  background: black;
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
 }</style><script>const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+const settingsBtn = document.getElementById("settingsBtn");
+const overlay = document.getElementById("overlay");
+const validateBtn = document.getElementById("validateBtn");
+const bounceToggle = document.getElementById("bounceToggle");
+const soundToggle = document.getElementById("soundToggle");
+
+let bounceEnabled = true;
+let soundEnabled = true;
+let popupOpen = false;
 
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
@@ -62,32 +136,27 @@ class Particle {
     this.x += this.vx;
     this.y += this.vy;
 
-    // 🔥 REBOND HORIZONTAL
-    if (this.x <= this.size) {
-      this.x = this.size;
-      this.vx *= -0.9;
+    if (bounceEnabled) {
+      if (this.x <= this.size) {
+        this.x = this.size;
+        this.vx *= -0.9;
+      }
+      if (this.x >= canvas.width - this.size) {
+        this.x = canvas.width - this.size;
+        this.vx *= -0.9;
+      }
+      if (this.y <= this.size) {
+        this.y = this.size;
+        this.vy *= -0.9;
+      }
+      if (this.y >= canvas.height - this.size) {
+        this.y = canvas.height - this.size;
+        this.vy *= -0.9;
+      }
     }
 
-    if (this.x >= canvas.width - this.size) {
-      this.x = canvas.width - this.size;
-      this.vx *= -0.9;
-    }
-
-    // 🔥 REBOND VERTICAL
-    if (this.y <= this.size) {
-      this.y = this.size;
-      this.vy *= -0.9;
-    }
-
-    if (this.y >= canvas.height - this.size) {
-      this.y = canvas.height - this.size;
-      this.vy *= -0.9;
-    }
-
-    // Légère friction
     this.vx *= 0.995;
     this.vy *= 0.995;
-
     this.life--;
   }
 
@@ -102,15 +171,16 @@ class Particle {
 let particles = [];
 
 // =====================
-// GÉNÉRATION AU TOUCH
+// GÉNÉRATION EXPLOSION
 // =====================
 
 function createExplosion(x, y) {
   const randomColor = Math.floor(Math.random() * 360);
-
   for (let i = 0; i < 60; i++) {
     particles.push(new Particle(x, y, randomColor));
   }
+
+  if (soundEnabled) playSound();
 }
 
 // =====================
@@ -124,24 +194,56 @@ function vibrate(duration = 15) {
 }
 
 // =====================
-// EVENTS
+// SON FEU D'ARTIFICE
 // =====================
+
+// Précharge le son
+const fireworkSound = new Audio("firework.mp3");
+
+// Fonction pour jouer le son
+function playSound() {
+  fireworkSound.currentTime = 0;
+  fireworkSound.play().catch(err => console.log("Lecture bloquée:", err));
+}
+
+// =====================
+// EVENTS CANVAS
+// =====================
+
+function handleTouch(x, y) {
+  if (popupOpen) return; // bloque quand popup ouvert
+  createExplosion(x, y);
+  vibrate(20);
+}
 
 canvas.addEventListener("touchstart", (e) => {
   const touch = e.touches[0];
-  createExplosion(touch.clientX, touch.clientY);
-  vibrate(20); // vibration au toucher
+  handleTouch(touch.clientX, touch.clientY);
 });
 
 canvas.addEventListener("touchmove", (e) => {
   const touch = e.touches[0];
-  createExplosion(touch.clientX, touch.clientY);
+  handleTouch(touch.clientX, touch.clientY);
 });
 
-// Pour tester sur ordi
 canvas.addEventListener("click", (e) => {
-  createExplosion(e.clientX, e.clientY);
-  vibrate(20);
+  handleTouch(e.clientX, e.clientY);
+});
+
+// =====================
+// POPUP LOGIQUE
+// =====================
+
+settingsBtn.addEventListener("click", () => {
+  popupOpen = true;
+  overlay.style.display = "flex";
+});
+
+validateBtn.addEventListener("click", () => {
+  bounceEnabled = bounceToggle.checked;
+  soundEnabled = soundToggle.checked;
+  popupOpen = false;
+  overlay.style.display = "none";
 });
 
 // =====================
