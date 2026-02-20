@@ -3,12 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voix → Notes</title>
+<title>Voix → Mélodie</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>🎤 Chante et vois tes notes !</h1>
+<h1>🎤 Chante ta mélodie !</h1>
 <canvas id="canvas"></canvas>
+<button id="playBtn">▶ Jouer la mélodie</button>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.39/build/Tone.js"></script>
 <script src="script.js"></script>
 </body>
 </html><style>html, body {
@@ -29,30 +32,37 @@ canvas {
   margin: 0 auto;
   background: #222;
   width: 100%;
-  height: 300px;
+  height: 200px;
+}
+
+button {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
 }</style><script>const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
-canvas.height = 300;
+canvas.height = 200;
 
 window.addEventListener("resize", ()=>{
   canvas.width = window.innerWidth;
 });
 
 // ===============================
-// UTILS pour conversion freq → note
+// UTILS : freq → note
 // ===============================
 function frequencyToNote(f) {
   const A4 = 440;
   const notes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const semitone = Math.round(12 * Math.log2(f / A4));
-  const noteIndex = (semitone + 9 + 12*10) % 12; // +9 pour C start
+  const noteIndex = (semitone + 9 + 120) % 12;
   const octave = 4 + Math.floor((semitone + 9) / 12);
   return notes[noteIndex] + octave;
 }
 
 // ===============================
-// MICRO & ANALYSE SIMPLE
+// SETUP AUDIO
 // ===============================
 navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
   const audioCtx = new AudioContext();
@@ -63,19 +73,19 @@ navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
 
   const buffer = new Float32Array(analyser.fftSize);
   let notesDetected = [];
+  let lastNote = null;
 
   function autoCorrelate(buf, sampleRate) {
-    // simple autocorrelation pitch detection
     let SIZE = buf.length;
     let rms = 0;
-    for (let i = 0; i < SIZE; i++) rms += buf[i]*buf[i];
+    for (let i=0;i<SIZE;i++) rms += buf[i]*buf[i];
     rms = Math.sqrt(rms/SIZE);
     if(rms < 0.01) return -1;
 
     let r = [];
-    for (let k = 0; k < SIZE/2; k++) {
+    for (let k=0;k<SIZE/2;k++){
       let sum = 0;
-      for (let i=0; i<SIZE/2; i++) sum += buf[i]*buf[i+k];
+      for(let i=0;i<SIZE/2;i++) sum += buf[i]*buf[i+k];
       r[k] = sum;
     }
     let d=0; while(r[d]>r[d+1]) d++;
@@ -90,8 +100,14 @@ navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     let freq = autoCorrelate(buffer, audioCtx.sampleRate);
     if(freq>50 && freq<2000){
       let note = frequencyToNote(freq);
-      notesDetected.push(note);
-      drawNotes(note);
+      // ajouter seulement si note change
+      if(note !== lastNote){
+        notesDetected.push(note);
+        lastNote = note;
+        drawNotes();
+      }
+    } else {
+      lastNote = null;
     }
     requestAnimationFrame(detectPitch);
   }
@@ -101,18 +117,29 @@ navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
   // ===============================
   // DESSIN
   // ===============================
-  let xPos = 20;
-  function drawNotes(note){
+  function drawNotes(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.fillStyle = "white";
     ctx.font = "20px sans-serif";
 
-    // afficher toutes les notes détectées
     for(let i=0;i<notesDetected.length;i++){
-      ctx.fillText(notesDetected[i], 20+i*50, canvas.height/2);
+      ctx.fillText(notesDetected[i], 20+i*60, canvas.height/2);
       ctx.beginPath();
-      ctx.arc(20+i*50, canvas.height/2+20, 10, 0, Math.PI*2);
+      ctx.arc(20+i*60, canvas.height/2+25, 10, 0, Math.PI*2);
       ctx.fill();
     }
   }
+
+  // ===============================
+  // PLAY BUTTON
+  // ===============================
+  const synth = new Tone.Synth().toDestination();
+  const playBtn = document.getElementById("playBtn");
+  playBtn.addEventListener("click", async ()=>{
+    await Tone.start();
+    let now = Tone.now();
+    notesDetected.forEach((note,i)=>{
+      synth.triggerAttackRelease(note,"8n", now + i*0.5);
+    });
+  });
 });</script>
