@@ -1,154 +1,123 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎹 Synthé Tactile</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>Chat Hugo 💬</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>🎹 Synthé Tactile</h1>
-<p>Pose un doigt et glisse pour jouer !</p>
-<canvas id="canvas"></canvas>
-<script src="script.js"></script>
+
+  <div class="chat-container">
+    <div id="messages"></div>
+
+    <div class="input-area">
+      <input type="text" id="username" placeholder="Ton prénom">
+      <input type="text" id="messageInput" placeholder="Écris un message...">
+      <button id="sendBtn">Envoyer</button>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
 </body>
-</html><style>html, body {
+</html><style>body {
   margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #111;
+  background: #0f0f0f;
+  font-family: Arial, sans-serif;
   color: white;
-  font-family: sans-serif;
-  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
-h1, p {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 10;
+.chat-container {
+  width: 90%;
+  max-width: 500px;
+  background: #1c1c1c;
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-h1 { top: 10px; }
-p { top: 40px; }
-
-canvas {
-  display: block;
-}</style><script>const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener("resize", resize);
-
-let audioCtx = null; // créé au premier touch
-const touches = {};  // stocke chaque doigt
-
-// générer couleur unique par doigt
-function getColor(id) {
-  const hue = (id * 50) % 360;
-  return `hsl(${hue}, 100%, 60%)`;
+#messages {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
 }
 
-// créer un oscillateur pour un doigt
-function createOscillator(id, x, y) {
-  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  const osc = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(200 + (x / canvas.width) * 1000, audioCtx.currentTime);
-  gainNode.gain.setValueAtTime(1 - y / canvas.height, audioCtx.currentTime);
-
-  osc.connect(gainNode).connect(audioCtx.destination);
-  osc.start();
-
-  touches[id] = {
-    osc,
-    gainNode,
-    lastX: x,
-    lastY: y,
-    color: getColor(id)
-  };
+.message {
+  margin-bottom: 10px;
 }
 
-// ===============================
-// DRAW TOUCHES + TRAÎNÉES
-// ===============================
-function draw() {
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  for(let id in touches){
-    const t = touches[id];
-    // traînée
-    ctx.beginPath();
-    ctx.arc(t.lastX, t.lastY, 30, 0, Math.PI*2);
-    ctx.fillStyle = t.color;
-    ctx.fill();
-  }
-
-  requestAnimationFrame(draw);
+.username {
+  font-weight: bold;
+  color: #4da6ff;
 }
-draw();
 
-// ===============================
-// TOUCH HANDLERS
-// ===============================
-canvas.addEventListener("touchstart", e=>{
-  e.preventDefault();
-  for(let t of e.changedTouches){
-    createOscillator(t.identifier, t.clientX, t.clientY);
-  }
+.input-area {
+  display: flex;
+  padding: 10px;
+  background: #111;
+}
+
+input {
+  flex: 1;
+  padding: 8px;
+  margin-right: 5px;
+  border-radius: 8px;
+  border: none;
+}
+
+button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: #4da6ff;
+  color: white;
+  cursor: pointer;
+}</style><script>import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { getDatabase, ref, push, onValue } 
+from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCQ9UDHE-QXhKYSdNDV7zk2gwegiJFmIZE",
+  authDomain: "test-1efab.firebaseapp.com",
+  projectId: "test-1efab",
+  storageBucket: "test-1efab.firebasestorage.app",
+  messagingSenderId: "7940774336",
+  appId: "1:7940774336:web:6e668ff2c52e2ba539d025",
+  measurementId: "G-Y9ZM33FQBL"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const messagesRef = ref(db, "messages");
+
+const sendBtn = document.getElementById("sendBtn");
+const messageInput = document.getElementById("messageInput");
+const usernameInput = document.getElementById("username");
+const messagesDiv = document.getElementById("messages");
+
+sendBtn.addEventListener("click", () => {
+  if (messageInput.value.trim() === "") return;
+
+  push(messagesRef, {
+    username: usernameInput.value || "Anonyme",
+    text: messageInput.value
+  });
+
+  messageInput.value = "";
 });
 
-canvas.addEventListener("touchmove", e=>{
-  e.preventDefault();
-  for(let t of e.changedTouches){
-    if(touches[t.identifier]){
-      const td = touches[t.identifier];
-
-      // fréquence X
-      let freq = 200 + (t.clientX / canvas.width) * 1000;
-
-      // modulation vitesse
-      const dx = t.clientX - td.lastX;
-      const dy = t.clientY - td.lastY;
-      const speed = Math.sqrt(dx*dx + dy*dy);
-      freq += speed;
-
-      td.osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-      // volume Y
-      td.gainNode.gain.setValueAtTime(1 - t.clientY / canvas.height, audioCtx.currentTime);
-
-      td.lastX = t.clientX;
-      td.lastY = t.clientY;
-    }
-  }
-});
-
-canvas.addEventListener("touchend", e=>{
-  e.preventDefault();
-  for(let t of e.changedTouches){
-    if(touches[t.identifier]){
-      touches[t.identifier].osc.stop();
-      delete touches[t.identifier];
-    }
-  }
-});
-
-canvas.addEventListener("touchcancel", e=>{
-  e.preventDefault();
-  for(let t of e.changedTouches){
-    if(touches[t.identifier]){
-      touches[t.identifier].osc.stop();
-      delete touches[t.identifier];
-    }
-  }
+onValue(messagesRef, (snapshot) => {
+  messagesDiv.innerHTML = "";
+  snapshot.forEach((childSnapshot) => {
+    const data = childSnapshot.val();
+    const div = document.createElement("div");
+    div.classList.add("message");
+    div.innerHTML = `<span class="username">${data.username} :</span> ${data.text}`;
+    messagesDiv.appendChild(div);
+  });
 });</script>
