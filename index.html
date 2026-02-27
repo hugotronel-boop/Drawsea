@@ -1,9 +1,9 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compteur de Pas</title>
+  <title>Compteur de Pas GPS</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -20,6 +20,8 @@
       padding: 40px;
       border-radius: 15px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
     }
     h1 {
       margin: 0;
@@ -49,61 +51,70 @@
 <body>
   <div class="container">
     <h1 id="stepCount">0</h1>
-    <p>Pas effectués aujourd'hui</p>
-    <button id="startBtn">Activer le capteur</button>
+    <p>Pas estimés aujourd'hui</p>
+    <button id="startBtn">Activer le suivi GPS</button>
     <button id="resetBtn" style="display:none;">Réinitialiser</button>
   </div>
 
   <script>
     let steps = 0;
-    let lastAcc = { x: null, y: null, z: null };
-    const threshold = 12; // sensibilité pour détecter un pas
+    const stepLength = 0.75; // mètre par pas
+    let lastPosition = null;
     const stepDisplay = document.getElementById('stepCount');
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
 
-    function handleMotion(event) {
-      const acc = event.accelerationIncludingGravity;
-      if (lastAcc.x !== null) {
-        const deltaX = Math.abs(acc.x - lastAcc.x);
-        const deltaY = Math.abs(acc.y - lastAcc.y);
-        const deltaZ = Math.abs(acc.z - lastAcc.z);
-        const totalMovement = deltaX + deltaY + deltaZ;
-        if (totalMovement > threshold) {
-          steps++;
-          stepDisplay.textContent = steps;
-        }
-      }
-      lastAcc = { x: acc.x, y: acc.y, z: acc.z };
+    // Calcul distance entre deux points GPS
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // rayon de la Terre en m
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c; // distance en mètres
     }
 
-    function initMotion() {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        // iOS 13+ : demander la permission
-        DeviceMotionEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              window.addEventListener('devicemotion', handleMotion);
-              startBtn.style.display = 'none';
-              resetBtn.style.display = 'inline-block';
-            } else {
-              alert("Permission refusée pour l'accéléromètre");
-            }
-          })
-          .catch(console.error);
-      } else {
-        // Android ou iOS < 13
-        window.addEventListener('devicemotion', handleMotion);
+    function updateSteps(distance) {
+      const newSteps = Math.floor(distance / stepLength);
+      if(newSteps > 0){
+        steps += newSteps;
+        stepDisplay.textContent = steps;
+      }
+    }
+
+    function startTracking() {
+      if (!navigator.geolocation) {
+        alert("La géolocalisation n'est pas supportée par votre navigateur.");
+        return;
+      }
+
+      navigator.geolocation.watchPosition(position => {
+        const { latitude, longitude } = position.coords;
+        if (lastPosition) {
+          const d = getDistance(
+            lastPosition.latitude,
+            lastPosition.longitude,
+            latitude,
+            longitude
+          );
+          updateSteps(d);
+        }
+        lastPosition = { latitude, longitude };
         startBtn.style.display = 'none';
         resetBtn.style.display = 'inline-block';
-      }
+      }, err => {
+        console.error(err);
+        alert("Erreur lors de la récupération du GPS.");
+      }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
     }
 
-    startBtn.addEventListener('click', initMotion);
+    startBtn.addEventListener('click', startTracking);
 
     resetBtn.addEventListener('click', () => {
       steps = 0;
       stepDisplay.textContent = steps;
+      lastPosition = null;
     });
   </script>
 </body>
