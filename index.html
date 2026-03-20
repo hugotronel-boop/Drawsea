@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NFC Duel de Dés</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --primary: #6200ea;
+            --secondary: #03dab5;
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --text: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 { color: var(--secondary); margin-bottom: 10px; }
+
+        /* Zones d'écran */
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .active { display: flex; }
+
+        /* État de connexion */
+        #status {
+            font-size: 0.9em;
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: #333;
+        }
+        .status-online { background-color: #2e7d32 !important; }
+        .status-error { background-color: #c62828 !important; }
+
+        /* Boutons */
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            width: 100%;
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.3); }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+
+        #btn-join { background-color: #333; border: 2px solid var(--primary); }
+
+        /* Zone de jeu */
+        .game-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .player-zone {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid transparent;
+        }
+        .player-zone.active-turn { border-color: var(--secondary); box-shadow: 0 0 15px rgba(3, 218, 181, 0.3); }
+
+        .player-name { font-weight: bold; font-size: 1.1em; color: var(--secondary); margin-bottom: 10px; }
+        
+        /* Visualisation du Dé */
+        .dice {
+            font-size: 5em;
+            height: 1em;
+            line-height: 1em;
+            transition: transform 0.5s;
+        }
+        .rolling { animation: wobble 0.5s infinite; }
+
+        @keyframes wobble {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(15deg); }
+            75% { transform: rotate(-15deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        #game-msg { font-style: italic; min-height: 1.2em; color: #aaa; }
+        
+        /* Input caché pour l'ID */
+        #peer-id-input {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background: #333;
+            color: white;
+            width: 80%;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Duel de Dés</h1>
+    <div id="status">Initialisation...</div>
+
+    <div id="screen-lobby" class="screen active">
+        <p>Scannez la pastille NFC pour jouer.</p>
+        <p>Si vous êtes le premier, créez la partie.<br>Le deuxième devra rejoindre.</p>
+        
+        <button id="btn-create">Créer une Partie (Hôte)</button>
+        
+        <div style="width:100%; border-top: 1px solid #333; margin: 10px 0;"></div>
+        
+        <p style="font-size:0.8em; color:#aaa;">Pour rejoindre, coller l'ID de l'hôte :</p>
+        <input type="text" id="peer-id-input" placeholder="ID de l'ami">
+        <button id="btn-join">Rejoindre la Partie</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div id="game-msg">En attente de l'adversaire...</div>
+        
+        <div class="game-area">
+            <div id="zone-local" class="player-zone">
+                <div class="player-name">Moi</div>
+                <div id="dice-local" class="dice">⚀</div>
+            </div>
+            <div id="zone-remote" class="player-zone">
+                <div class="player-name">Adversaire</div>
+                <div id="dice-remote" class="dice">⚀</div>
+            </div>
+        </div>
+
+        <button id="btn-roll" disabled>Lancer le Dé !</button>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const peer = new Peer(); // Crée un ID aléatoire via le serveur public de PeerJS
+        let conn = null; // Stockera la connexion avec l'autre joueur
+        let myTurn = false;
+        let isHost = false;
+
+        // Représentation unicode des dés
+        const diceFaces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+        // UI Éléments
+        const ui = {
+            status: document.getElementById('status'),
+            lobby: document.getElementById('screen-lobby'),
+            game: document.getElementById('screen-game'),
+            paramId: document.getElementById('peer-id-input'),
+            btnCreate: document.getElementById('btn-create'),
+            btnJoin: document.getElementById('btn-join'),
+            btnRoll: document.getElementById('btn-roll'),
+            msg: document.getElementById('game-msg'),
+            diceLocal: document.getElementById('dice-local'),
+            diceRemote: document.getElementById('dice-remote'),
+            zoneLocal: document.getElementById('zone-local'),
+            zoneRemote: document.getElementById('zone-remote')
+        };
+
+        // --- GESTION DE LA CONNEXION (PEERJS) ---
+
+        // 1. Mon ID est prêt
+        peer.on('open', (id) => {
+            ui.status.textContent = "Prêt. Votre ID: " + id;
+            ui.status.classList.add('status-online');
+            
+            // ASTUCE NFC : Si l'URL contient ?join=ID, on se connecte automatiquement
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinId = urlParams.get('join');
+            if (joinId) {
+                ui.paramId.value = joinId;
+                setTimeout(joinGame, 500); // Petite pause pour laisser PeerJS se stabiliser
+            }
+        });
+
+        // 2. Erreur de connexion
+        peer.on('error', (err) => {
+            console.error(err);
+            ui.status.textContent = "Erreur: " + err.type;
+            ui.status.classList.add('status-error');
+        });
+
+        // 3. (HÔTE) Quelqu'un se connecte à moi
+        peer.on('connection', (incomingConn) => {
+            if (conn) { incomingConn.close(); return; } // On n'accepte qu'un seul adversaire
+            conn = incomingConn;
+            isHost = true;
+            setupConnection();
+            startGame();
+        });
+
+        // --- ACTIONS UTILISATEUR ---
+
+        ui.btnCreate.onclick = () => {
+            // L'hôte attend juste. Il doit donner son ID à l'ami.
+            // Dans une version NFC avancée, l'hôte ré-écrirait le tag avec son ID.
+            // Ici, on fait simple : l'hôte doit copier-coller son ID à l'ami.
+            const myId = peer.id;
+            navigator.clipboard.writeText(myId).then(() => {
+                alert("Votre ID a été copié dans le presse-papiers.\nEnvoyez-le à votre ami ou faites-lui scanner un QR code de cet ID.\n\nID: " + myId);
+            });
+            ui.btnCreate.textContent = "En attente d'un ami...";
+            ui.btnCreate.disabled = true;
+            ui.btnJoin.disabled = true;
+        };
+
+        ui.btnJoin.onclick = joinGame;
+
+        function joinGame() {
+            const remoteId = ui.paramId.value.trim();
+            if (!remoteId) { alert("Veuillez entrer l'ID de l'hôte"); return; }
+            
+            ui.status.textContent = "Connexion à " + remoteId + "...";
+            conn = peer.connect(remoteId);
+            isHost = false;
+            setupConnection();
+            // On attend que la connexion s'ouvre ('open') pour lancer le jeu
+        }
+
+        ui.btnRoll.onclick = rollDice;
+
+        // --- LOGIQUE DU JEU ---
+
+        function setupConnection() {
+            // Quand la connexion est établie
+            conn.on('open', () => {
+                startGame();
+            });
+
+            // Quand on reçoit des données de l'adversaire
+            conn.on('data', (data) => {
+                handleGameData(data);
+            });
+
+            // Si l'adversaire se déconnecte
+            conn.on('close', () => {
+                ui.status.textContent = "Adversaire déconnecté.";
+                ui.status.classList.remove('status-online');
+                ui.btnRoll.disabled = true;
+                setTimeout(()=> location.reload(), 2000); // Recharge la page après 2s
+            });
+        }
+
+        function startGame() {
+            ui.lobby.classList.remove('active');
+            ui.game.classList.add('active');
+            ui.status.textContent = "Connecté à l'adversaire";
+
+            if (isHost) {
+                myTurn = true;
+                updateTurnUI("C'est à vous de commencer !");
+            } else {
+                myTurn = false;
+                updateTurnUI("Attente du lancer de l'hôte...");
+            }
+        }
+
+        function rollDice() {
+            if (!myTurn) return;
+            myTurn = false;
+            ui.btnRoll.disabled = true;
+
+            // Animation de lancer
+            ui.diceLocal.classList.add('rolling');
+            ui.msg.textContent = "Lancement...";
+
+            // Envoie l'info "je lance le dé" pour que l'adversaire voie l'animation
+            conn.send({ action: 'isRolling' });
+
+            setTimeout(() => {
+                ui.diceLocal.classList.remove('rolling');
+                const result = Math.floor(Math.random() * 6) + 1; // 1 à 6
+                ui.diceLocal.textContent = diceFaces[result - 1];
+
+                // Envoie le résultat
+                conn.send({ action: 'rollResult', value: result });
+                
+                updateTurnUI("Attente de l'adversaire...");
+            }, 1500); // 1.5s d'animation
+        }
+
+        function handleGameData(data) {
+            switch(data.action) {
+                case 'isRolling':
+                    ui.diceRemote.classList.add('rolling');
+                    ui.msg.textContent = "L'adversaire lance le dé...";
+                    break;
+                case 'rollResult':
+                    ui.diceRemote.classList.remove('rolling');
+                    ui.diceRemote.textContent = diceFaces[data.value - 1];
+                    myTurn = true;
+                    updateTurnUI("C'est votre tour !");
+                    break;
+            }
+        }
+
+        function updateTurnUI(message) {
+            ui.msg.textContent = message;
+            ui.btnRoll.disabled = !myTurn;
+            
+            if (myTurn) {
+                ui.zoneLocal.classList.add('active-turn');
+                ui.zoneRemote.classList.remove('active-turn');
+            } else {
+                ui.zoneLocal.classList.remove('active-turn');
+                ui.zoneRemote.classList.add('active-turn');
+            }
+        }
+
+    </script>
+</body>
+</html>
