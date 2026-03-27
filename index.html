@@ -4,505 +4,518 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>3D Head Tracker</title>
+<title>3D Cube Tracker</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-–bg: #050508;
-–accent: #00ffe0;
-–accent2: #ff2d78;
-–glass: rgba(255,255,255,0.04);
-–border: rgba(0,255,224,0.15);
+–bg: #06060c;
+–c1: #00c2ff;   /* cyan */
+–c2: #a855f7;   /* violet */
+–c3: #ff2d78;   /* pink */
 }
 
 body {
 background: var(–bg);
-color: #e0e0e0;
-font-family: ‘Space Mono’, monospace;
 height: 100dvh;
 display: flex;
 flex-direction: column;
 align-items: center;
 justify-content: center;
 overflow: hidden;
-user-select: none;
--webkit-user-select: none;
+font-family: ‘Space Mono’, monospace;
 }
 
-/* Animated grid background */
+/* Grid bg */
 body::before {
 content: ‘’;
-position: fixed;
-inset: 0;
+position: fixed; inset: 0;
 background-image:
-linear-gradient(rgba(0,255,224,0.04) 1px, transparent 1px),
-linear-gradient(90deg, rgba(0,255,224,0.04) 1px, transparent 1px);
-background-size: 40px 40px;
-z-index: 0;
-pointer-events: none;
+linear-gradient(rgba(0,194,255,0.035) 1px, transparent 1px),
+linear-gradient(90deg, rgba(0,194,255,0.035) 1px, transparent 1px);
+background-size: 48px 48px;
+pointer-events: none; z-index: 0;
 }
 
-/* Glow blobs */
+/* Ambient glow */
 body::after {
 content: ‘’;
-position: fixed;
-inset: 0;
+position: fixed; inset: 0;
 background:
-radial-gradient(ellipse 60% 40% at 20% 80%, rgba(255,45,120,0.08) 0%, transparent 60%),
-radial-gradient(ellipse 50% 50% at 80% 20%, rgba(0,255,224,0.06) 0%, transparent 60%);
-z-index: 0;
-pointer-events: none;
+radial-gradient(ellipse 70% 50% at 15% 85%, rgba(168,85,247,0.12) 0%, transparent 60%),
+radial-gradient(ellipse 60% 60% at 85% 15%, rgba(0,194,255,0.08) 0%, transparent 60%);
+pointer-events: none; z-index: 0;
 }
 
+/* ───── STATUS BAR ───── */
 #status-bar {
-position: fixed;
-top: 0; left: 0; right: 0;
-padding: 12px 20px;
-display: flex;
-align-items: center;
-gap: 10px;
-font-size: 11px;
-letter-spacing: 0.1em;
-text-transform: uppercase;
-background: rgba(5,5,8,0.8);
-border-bottom: 1px solid var(–border);
-backdrop-filter: blur(10px);
-z-index: 100;
+position: fixed; top: 0; left: 0; right: 0;
+padding: 10px 18px;
+display: flex; align-items: center; gap: 10px;
+font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+background: rgba(6,6,12,0.85);
+border-bottom: 1px solid rgba(0,194,255,0.1);
+backdrop-filter: blur(12px); z-index: 100;
+color: rgba(255,255,255,0.4);
 }
-
-#status-dot {
-width: 8px; height: 8px;
-border-radius: 50%;
-background: #555;
-transition: background 0.3s;
-flex-shrink: 0;
+#sdot {
+width: 7px; height: 7px; border-radius: 50%;
+background: #333; flex-shrink: 0; transition: background .3s;
 }
-#status-dot.active { background: var(–accent); box-shadow: 0 0 8px var(–accent); animation: pulse 1.5s infinite; }
-#status-dot.error { background: var(–accent2); box-shadow: 0 0 8px var(–accent2); }
+#sdot.on  { background: var(–c1); box-shadow: 0 0 8px var(–c1); animation: blink 1.6s infinite; }
+#sdot.err { background: var(–c3); box-shadow: 0 0 8px var(–c3); }
+#stxt span { color: var(–c1); }
 
-@keyframes pulse {
-0%, 100% { opacity: 1; }
-50% { opacity: 0.4; }
-}
-
-#status-text { color: rgba(255,255,255,0.5); }
-#status-text span { color: var(–accent); }
-
-/* Debug coords */
 #coords {
-position: fixed;
-bottom: 16px; left: 50%;
+position: fixed; bottom: 14px; left: 50%;
 transform: translateX(-50%);
-font-size: 10px;
-letter-spacing: 0.08em;
-color: rgba(255,255,255,0.2);
-z-index: 100;
-font-family: ‘Space Mono’, monospace;
-pointer-events: none;
+font-size: 9px; letter-spacing: 0.1em;
+color: rgba(255,255,255,0.15); z-index: 100; pointer-events: none;
 }
 
-/* Hidden video */
-#video {
-position: fixed;
-top: -9999px; left: -9999px;
-width: 1px; height: 1px;
-}
-
-/* Scene container */
-#scene-wrap {
-position: relative;
-z-index: 10;
-perspective: 800px;
-width: min(380px, 90vw);
-height: min(380px, 90vw);
-}
-
-#scene {
-width: 100%; height: 100%;
-transform-style: preserve-3d;
-transform: rotateX(0deg) rotateY(0deg);
-transition: transform 0.08s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-will-change: transform;
-}
-
-/* The 3D card */
-.card {
-position: absolute;
-inset: 0;
-background: var(–glass);
-border: 1px solid var(–border);
-border-radius: 24px;
-backdrop-filter: blur(20px);
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-gap: 20px;
-transform-style: preserve-3d;
+/* ───── WORLD ───── */
+#world-wrap {
+position: relative; z-index: 10;
+width: 100vw; height: 100dvh;
+perspective: 900px;
+perspective-origin: 50% 50%;
 overflow: hidden;
 }
 
-/* Shimmer layer that follows head */
-.card::before {
+#world {
+position: absolute; inset: 0;
+transform-style: preserve-3d;
+/* rotated by head tracking */
+transform: rotateX(0deg) rotateY(0deg);
+will-change: transform;
+}
+
+/* ───── CUBE BASE ───── */
+.cube {
+position: absolute;
+transform-style: preserve-3d;
+}
+.face {
+position: absolute;
+border: 1px solid;
+display: flex; align-items: center; justify-content: center;
+}
+
+/* ══════════════════════════════
+BIG CUBE  —  premier plan
+size: 160px, translateZ: +120px
+══════════════════════════════ */
+#cube-big {
+width: 160px; height: 160px;
+left: calc(50% - 80px);
+top:  calc(50% - 80px);
+transform: translateZ(120px) rotateX(20deg) rotateY(25deg);
+animation: spin-big 18s linear infinite;
+}
+
+#cube-big .face {
+width: 160px; height: 160px;
+border-color: rgba(0,194,255,0.5);
+background: rgba(0,194,255,0.04);
+}
+/* diagonal line cross */
+#cube-big .face::before, #cube-big .face::after {
 content: ‘’;
+position: absolute; inset: 0;
+background: linear-gradient(135deg, transparent 48%, rgba(0,194,255,0.12) 49%, rgba(0,194,255,0.12) 51%, transparent 52%);
+}
+#cube-big .face::after {
+background: linear-gradient(-135deg, transparent 48%, rgba(0,194,255,0.12) 49%, rgba(0,194,255,0.12) 51%, transparent 52%);
+}
+/* corner dots */
+#cube-big .face .dot {
+width: 6px; height: 6px; border-radius: 50%;
+background: var(–c1);
+box-shadow: 0 0 10px var(–c1);
 position: absolute;
-inset: 0;
-border-radius: 24px;
-background: radial-gradient(circle at var(–mx, 50%) var(–my, 50%), rgba(0,255,224,0.12) 0%, transparent 60%);
+}
+#cube-big .face .dot:nth-child(1) { top: 8px; left: 8px; }
+#cube-big .face .dot:nth-child(2) { top: 8px; right: 8px; }
+#cube-big .face .dot:nth-child(3) { bottom: 8px; left: 8px; }
+#cube-big .face .dot:nth-child(4) { bottom: 8px; right: 8px; }
+
+#cube-big .front  { transform: translateZ(80px); }
+#cube-big .back   { transform: rotateY(180deg) translateZ(80px); }
+#cube-big .left   { transform: rotateY(-90deg) translateZ(80px); }
+#cube-big .right  { transform: rotateY( 90deg) translateZ(80px); }
+#cube-big .top    { transform: rotateX( 90deg) translateZ(80px); }
+#cube-big .bottom { transform: rotateX(-90deg) translateZ(80px); }
+
+/* ══════════════════════════════
+MEDIUM CUBE  — milieu
+size: 90px, translateZ: -60px, décalé
+══════════════════════════════ */
+#cube-mid {
+width: 90px; height: 90px;
+left: calc(50% + 60px);
+top:  calc(50% - 80px);
+transform: translateZ(-60px) rotateX(-15deg) rotateY(40deg);
+animation: spin-mid 24s linear infinite reverse;
+}
+#cube-mid .face {
+width: 90px; height: 90px;
+border-color: rgba(168,85,247,0.55);
+background: rgba(168,85,247,0.04);
+}
+#cube-mid .face::before {
+content: ‘’;
+position: absolute; inset: 0;
+background: linear-gradient(135deg, transparent 48%, rgba(168,85,247,0.15) 49%, rgba(168,85,247,0.15) 51%, transparent 52%);
+}
+#cube-mid .face .dot {
+width: 4px; height: 4px; border-radius: 50%;
+background: var(–c2);
+box-shadow: 0 0 8px var(–c2);
+position: absolute;
+}
+#cube-mid .face .dot:nth-child(1) { top: 5px; left: 5px; }
+#cube-mid .face .dot:nth-child(2) { top: 5px; right: 5px; }
+#cube-mid .face .dot:nth-child(3) { bottom: 5px; left: 5px; }
+#cube-mid .face .dot:nth-child(4) { bottom: 5px; right: 5px; }
+
+#cube-mid .front  { transform: translateZ(45px); }
+#cube-mid .back   { transform: rotateY(180deg) translateZ(45px); }
+#cube-mid .left   { transform: rotateY(-90deg) translateZ(45px); }
+#cube-mid .right  { transform: rotateY( 90deg) translateZ(45px); }
+#cube-mid .top    { transform: rotateX( 90deg) translateZ(45px); }
+#cube-mid .bottom { transform: rotateX(-90deg) translateZ(45px); }
+
+/* ══════════════════════════════
+SMALL CUBE  —  arrière-plan loin
+size: 50px, translateZ: -260px
+══════════════════════════════ */
+#cube-small {
+width: 50px; height: 50px;
+left: calc(50% - 130px);
+top:  calc(50% + 40px);
+transform: translateZ(-260px) rotateX(30deg) rotateY(-20deg);
+animation: spin-small 30s linear infinite;
+}
+#cube-small .face {
+width: 50px; height: 50px;
+border-color: rgba(255,45,120,0.5);
+background: rgba(255,45,120,0.03);
+}
+#cube-small .face .dot {
+width: 3px; height: 3px; border-radius: 50%;
+background: var(–c3);
+box-shadow: 0 0 6px var(–c3);
+position: absolute;
+}
+#cube-small .face .dot:nth-child(1) { top: 4px; left: 4px; }
+#cube-small .face .dot:nth-child(2) { top: 4px; right: 4px; }
+#cube-small .face .dot:nth-child(3) { bottom: 4px; left: 4px; }
+#cube-small .face .dot:nth-child(4) { bottom: 4px; right: 4px; }
+
+#cube-small .front  { transform: translateZ(25px); }
+#cube-small .back   { transform: rotateY(180deg) translateZ(25px); }
+#cube-small .left   { transform: rotateY(-90deg) translateZ(25px); }
+#cube-small .right  { transform: rotateY( 90deg) translateZ(25px); }
+#cube-small .top    { transform: rotateX( 90deg) translateZ(25px); }
+#cube-small .bottom { transform: rotateX(-90deg) translateZ(25px); }
+
+/* ══════════════════════════════
+TINY CUBE  —  tout au fond
+══════════════════════════════ */
+#cube-tiny {
+width: 28px; height: 28px;
+left: calc(50% + 100px);
+top:  calc(50% + 60px);
+transform: translateZ(-420px) rotateX(-10deg) rotateY(60deg);
+animation: spin-mid 40s linear infinite;
+}
+#cube-tiny .face {
+width: 28px; height: 28px;
+border-color: rgba(0,194,255,0.3);
+background: rgba(0,194,255,0.02);
+}
+#cube-tiny .front  { transform: translateZ(14px); }
+#cube-tiny .back   { transform: rotateY(180deg) translateZ(14px); }
+#cube-tiny .left   { transform: rotateY(-90deg) translateZ(14px); }
+#cube-tiny .right  { transform: rotateY( 90deg) translateZ(14px); }
+#cube-tiny .top    { transform: rotateX( 90deg) translateZ(14px); }
+#cube-tiny .bottom { transform: rotateX(-90deg) translateZ(14px); }
+
+/* ══════════════════════
+Floating particles (CSS only)
+══════════════════════ */
+.particle {
+position: absolute;
+border-radius: 50%;
 pointer-events: none;
-transition: background 0.1s;
 }
 
-.card-title {
-font-family: ‘Syne’, sans-serif;
-font-size: clamp(28px, 7vw, 42px);
-font-weight: 800;
-letter-spacing: -0.02em;
-background: linear-gradient(135deg, #fff 30%, var(–accent));
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-background-clip: text;
-transform: translateZ(40px);
-text-align: center;
-}
+/* Spin animations — INDEPENDENT of head tracking */
+@keyframes spin-big   { to { transform: translateZ(120px) rotateX(360deg) rotateY(360deg); } }
+@keyframes spin-mid   { to { transform: translateZ(-60px) rotateX(-360deg) rotateY(400deg); } }
+@keyframes spin-small { to { transform: translateZ(-260px) rotateX(390deg) rotateY(-360deg); } }
 
-/* Floating layers for parallax depth */
-.layer {
-position: absolute;
-border-radius: 12px;
-}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-.layer-1 {
-width: 60px; height: 60px;
-border: 1px solid var(–border);
-top: 20px; left: 20px;
-transform: translateZ(20px);
-background: linear-gradient(135deg, rgba(0,255,224,0.08), transparent);
-animation: float1 4s ease-in-out infinite;
-}
-.layer-2 {
-width: 40px; height: 40px;
-border: 1px solid rgba(255,45,120,0.2);
-bottom: 30px; right: 25px;
-transform: translateZ(60px);
-background: linear-gradient(135deg, rgba(255,45,120,0.08), transparent);
-animation: float2 5s ease-in-out infinite;
-}
-.layer-3 {
-width: 20px; height: 20px;
-border-radius: 50%;
-border: 1px solid var(–border);
-top: 40px; right: 40px;
-transform: translateZ(80px);
-background: rgba(0,255,224,0.1);
-animation: float3 3.5s ease-in-out infinite;
-}
-.layer-4 {
-width: 50px; height: 2px;
-background: linear-gradient(90deg, transparent, var(–accent), transparent);
-bottom: 60px; left: 30px;
-transform: translateZ(30px);
-animation: float1 6s ease-in-out infinite reverse;
-}
-
-@keyframes float1 { 0%,100%{transform:translateZ(20px) translateY(0)} 50%{transform:translateZ(20px) translateY(-8px)} }
-@keyframes float2 { 0%,100%{transform:translateZ(60px) translateY(0)} 50%{transform:translateZ(60px) translateY(6px)} }
-@keyframes float3 { 0%,100%{transform:translateZ(80px) translateY(0) scale(1)} 50%{transform:translateZ(80px) translateY(-5px) scale(1.1)} }
-
-.badge {
-display: flex;
-align-items: center;
-gap: 8px;
-padding: 8px 16px;
-border: 1px solid var(–border);
-border-radius: 100px;
-font-size: 11px;
-letter-spacing: 0.12em;
-text-transform: uppercase;
-color: var(–accent);
-transform: translateZ(50px);
-background: rgba(0,255,224,0.04);
-}
-
-.badge-dot {
-width: 6px; height: 6px;
-border-radius: 50%;
-background: var(–accent);
-box-shadow: 0 0 6px var(–accent);
-animation: pulse 1.5s infinite;
-}
-
-/* Corner decorations */
-.corner {
-position: absolute;
-width: 16px; height: 16px;
-border-color: rgba(0,255,224,0.3);
-border-style: solid;
-}
-.corner-tl { top: 12px; left: 12px; border-width: 1px 0 0 1px; border-radius: 3px 0 0 0; }
-.corner-tr { top: 12px; right: 12px; border-width: 1px 1px 0 0; border-radius: 0 3px 0 0; }
-.corner-bl { bottom: 12px; left: 12px; border-width: 0 0 1px 1px; border-radius: 0 0 0 3px; }
-.corner-br { bottom: 12px; right: 12px; border-width: 0 1px 1px 0; border-radius: 0 0 3px 0; }
-
-/* Start overlay */
+/* ───── OVERLAY ───── */
 #overlay {
-position: fixed;
-inset: 0;
+position: fixed; inset: 0;
 background: var(–bg);
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-gap: 24px;
-z-index: 200;
-transition: opacity 0.5s;
+display: flex; flex-direction: column;
+align-items: center; justify-content: center; gap: 20px;
+z-index: 200; transition: opacity .6s;
 }
 #overlay.hidden { opacity: 0; pointer-events: none; }
 
 #overlay h1 {
-font-family: ‘Syne’, sans-serif;
-font-size: clamp(32px, 8vw, 52px);
-font-weight: 800;
-letter-spacing: -0.03em;
+font-size: clamp(34px,9vw,56px);
+font-weight: 700; letter-spacing: -0.04em;
 text-align: center;
-background: linear-gradient(135deg, #fff, var(–accent));
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-background-clip: text;
-padding: 0 20px;
+background: linear-gradient(130deg, #fff 20%, var(–c1) 60%, var(–c2));
+-webkit-background-clip: text; -webkit-text-fill-color: transparent;
+background-clip: text; padding: 0 20px;
+}
+#overlay p {
+font-size: 11px; color: rgba(255,255,255,.3);
+letter-spacing: .06em; text-align: center;
+max-width: 240px; line-height: 1.9;
 }
 
-#overlay p {
-font-size: 12px;
-color: rgba(255,255,255,0.35);
-letter-spacing: 0.06em;
-text-align: center;
-max-width: 260px;
-line-height: 1.8;
+/* Preview cubes in overlay */
+.preview-wrap {
+position: relative;
+width: 180px; height: 120px;
+perspective: 600px;
+margin: 8px 0;
 }
+.preview-scene {
+position: absolute; inset: 0;
+transform-style: preserve-3d;
+animation: preview-rotate 6s ease-in-out infinite alternate;
+}
+@keyframes preview-rotate {
+0%   { transform: rotateX(10deg) rotateY(-20deg); }
+100% { transform: rotateX(-10deg) rotateY(20deg); }
+}
+.pc { position: absolute; transform-style: preserve-3d; }
+.pf { position: absolute; border: 1px solid; }
 
 #start-btn {
-margin-top: 8px;
-padding: 14px 36px;
+padding: 13px 34px;
 background: transparent;
-border: 1px solid var(–accent);
-border-radius: 100px;
-color: var(–accent);
+border: 1px solid var(–c1); border-radius: 100px;
+color: var(–c1);
 font-family: ‘Space Mono’, monospace;
-font-size: 12px;
-letter-spacing: 0.15em;
-text-transform: uppercase;
-cursor: pointer;
-position: relative;
-overflow: hidden;
-transition: color 0.3s, box-shadow 0.3s;
+font-size: 11px; letter-spacing: .15em; text-transform: uppercase;
+cursor: pointer; position: relative; overflow: hidden;
+transition: color .3s, box-shadow .3s;
 }
 #start-btn::before {
-content: ‘’;
-position: absolute;
-inset: 0;
-background: var(–accent);
-transform: scaleX(0);
-transform-origin: left;
-transition: transform 0.3s;
+content: ‘’; position: absolute; inset: 0;
+background: var(–c1); transform: scaleX(0); transform-origin: left;
+transition: transform .3s;
 }
-#start-btn:hover::before, #start-btn:active::before { transform: scaleX(1); }
-#start-btn:hover, #start-btn:active { color: var(–bg); box-shadow: 0 0 20px rgba(0,255,224,0.3); }
+#start-btn:active::before { transform: scaleX(1); }
+#start-btn:active { color: #06060c; box-shadow: 0 0 24px rgba(0,194,255,.35); }
 #start-btn span { position: relative; z-index: 1; }
 
 #loading {
-display: none;
-font-size: 11px;
-color: rgba(255,255,255,0.3);
-letter-spacing: 0.1em;
+display: none; font-size: 10px;
+color: rgba(255,255,255,.25); letter-spacing: .1em;
 animation: blink 1s infinite;
 }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+/* hidden video */
+#video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
 </style>
 
 </head>
 <body>
 
-<!-- Start overlay -->
+<!-- OVERLAY -->
 
 <div id="overlay">
-  <h1>3D Head<br>Tracker</h1>
-  <p>Bouge ta tête — la carte suit ta perspective en temps réel.</p>
-  <button id="start-btn" onclick="startTracking()"><span>Activer la caméra</span></button>
-  <div id="loading">Chargement du modèle IA...</div>
+  <h1>3D Cubes<br>Head Track</h1>
+
+  <!-- Animated preview -->
+
+  <div class="preview-wrap">
+    <div class="preview-scene" id="ps"></div>
+  </div>
+
+  <p>Ta tête déplace la perspective —<br>les cubes bougent en profondeur.</p>
+  <button id="start-btn" onclick="startTracking()"><span>Activer caméra</span></button>
+  <div id="loading">Chargement IA…</div>
 </div>
 
-<!-- Status bar -->
+<!-- STATUS -->
 
 <div id="status-bar">
-  <div id="status-dot"></div>
-  <div id="status-text">En attente de la caméra</div>
+  <div id="sdot"></div>
+  <div id="stxt">En attente de la caméra</div>
 </div>
-
-<!-- Hidden video feed -->
 
 <video id="video" playsinline autoplay muted></video>
 
-<!-- 3D Scene -->
+<!-- ══ WORLD ══ -->
 
-<div id="scene-wrap">
-  <div id="scene">
-    <div class="card" id="card">
-      <div class="corner corner-tl"></div>
-      <div class="corner corner-tr"></div>
-      <div class="corner corner-bl"></div>
-      <div class="corner corner-br"></div>
+<div id="world-wrap">
+  <div id="world">
 
 ```
-  <div class="layer layer-1"></div>
-  <div class="layer layer-2"></div>
-  <div class="layer layer-3"></div>
-  <div class="layer layer-4"></div>
+<!-- BIG CUBE -->
+<div class="cube" id="cube-big">
+  <div class="face front" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face back"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face left"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face right" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face top"   ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face bottom"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+</div>
 
-  <div class="badge"><div class="badge-dot"></div>Live 3D</div>
-  <div class="card-title">Head<br>Tracking</div>
-  <div class="badge" style="color:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.08);font-size:10px">Move your head →</div>
+<!-- MID CUBE -->
+<div class="cube" id="cube-mid">
+  <div class="face front" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face back"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face left"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face right" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face top"   ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face bottom"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+</div>
+
+<!-- SMALL CUBE -->
+<div class="cube" id="cube-small">
+  <div class="face front" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face back"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face left"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face right" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face top"   ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <div class="face bottom"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+</div>
+
+<!-- TINY CUBE -->
+<div class="cube" id="cube-tiny">
+  <div class="face front"></div>
+  <div class="face back" ></div>
+  <div class="face left" ></div>
+  <div class="face right"></div>
+  <div class="face top"  ></div>
+  <div class="face bottom"></div>
 </div>
 ```
 
-  </div>
-</div>
+  </div><!-- /world -->
+</div><!-- /world-wrap -->
 
-<div id="coords">X: 0.0° &nbsp; Y: 0.0°</div>
+<div id="coords">X: 0.0°  Y: 0.0°</div>
 
-<!-- MediaPipe FaceMesh via CDN -->
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<!-- MediaPipe -->
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
 <script>
+/* ── Preview cubes in overlay ─────────────────────── */
+(function buildPreview() {
+  const ps = document.getElementById('ps');
+  const defs = [
+    { s:70, x:30, y:20, z:30, col:'rgba(0,194,255,0.5)', bg:'rgba(0,194,255,0.04)' },
+    { s:36, x:110, y:40, z:10, col:'rgba(168,85,247,0.5)', bg:'rgba(168,85,247,0.04)' },
+    { s:20, x:10,  y:60, z:-40, col:'rgba(255,45,120,0.4)', bg:'transparent' },
+  ];
+  defs.forEach(d => {
+    const c = document.createElement('div');
+    c.className = 'pc';
+    c.style.cssText = `width:${d.s}px;height:${d.s}px;left:${d.x}px;top:${d.y}px;transform:translateZ(${d.z}px) rotateX(20deg) rotateY(25deg);transform-style:preserve-3d;animation:spin-big ${8+d.s*.2}s linear infinite`;
+    const h = d.s/2;
+    const faces = ['translateZ','rotateY(180deg) translateZ','rotateY(-90deg) translateZ','rotateY(90deg) translateZ','rotateX(90deg) translateZ','rotateX(-90deg) translateZ'];
+    faces.forEach(f => {
+      const face = document.createElement('div');
+      face.className = 'pf';
+      face.style.cssText = `width:${d.s}px;height:${d.s}px;border-color:${d.col};background:${d.bg};transform:${f}(${h}px)`;
+      c.appendChild(face);
+    });
+    ps.appendChild(c);
+  });
+})();
+
+/* ── Tracking ────────────────────────────────────── */
 const video   = document.getElementById('video');
-const scene   = document.getElementById('scene');
-const card    = document.getElementById('card');
-const dot     = document.getElementById('status-dot');
-const txt     = document.getElementById('status-text');
+const world   = document.getElementById('world');
+const sdot    = document.getElementById('sdot');
+const stxt    = document.getElementById('stxt');
 const coords  = document.getElementById('coords');
 const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
 
-let targetX = 0, targetY = 0;
-let currentX = 0, currentY = 0;
-let isTracking = false;
+let tX=0, tY=0, cX=0, cY=0;
+function lerp(a,b,t){ return a+(b-a)*t; }
 
-// Smooth lerp loop
-function lerp(a, b, t) { return a + (b - a) * t; }
-
-function animate() {
+(function animate(){
   requestAnimationFrame(animate);
-  currentX = lerp(currentX, targetX, 0.12);
-  currentY = lerp(currentY, targetY, 0.12);
-  scene.style.transform = `rotateX(${currentX}deg) rotateY(${currentY}deg)`;
-  
-  // Shimmer follows head position (map -30..30 to 0..100%)
-  const mx = ((currentY + 30) / 60) * 100;
-  const my = ((-currentX + 30) / 60) * 100;
-  card.style.setProperty('--mx', mx + '%');
-  card.style.setProperty('--my', my + '%');
+  cX = lerp(cX, tX, 0.1);
+  cY = lerp(cY, tY, 0.1);
+  world.style.transform = `rotateX(${cX}deg) rotateY(${cY}deg)`;
+  coords.textContent = `X: ${cY.toFixed(1)}°   Y: ${cX.toFixed(1)}°`;
+})();
 
-  coords.textContent = `X: ${currentY.toFixed(1)}°   Y: ${currentX.toFixed(1)}°`;
-}
-animate();
-
-// Nose tip landmark index in FaceMesh: 1
-// We track nose (1) vs forehead (10) to get vertical, and nose vs ear distance for horizontal
 async function startTracking() {
   loading.style.display = 'block';
   document.getElementById('start-btn').style.display = 'none';
 
-  const faceMesh = new FaceMesh({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  const fm = new FaceMesh({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
   });
-
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-
-  faceMesh.onResults(onResults);
+  fm.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:.5, minTrackingConfidence:.5 });
+  fm.onResults(onResults);
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }
+      video: { facingMode:'user', width:{ideal:320}, height:{ideal:240} }
     });
     video.srcObject = stream;
     video.onloadedmetadata = () => {
       video.play();
       overlay.classList.add('hidden');
-      dot.classList.add('active');
-      txt.innerHTML = 'Tracking <span>en cours</span>';
-      isTracking = true;
-      processFrame(faceMesh);
+      sdot.className = 'on';
+      stxt.innerHTML = 'Tracking <span>actif</span>';
+      (async function loop(){
+        await fm.send({image: video});
+        requestAnimationFrame(loop);
+      })();
     };
   } catch(e) {
-    dot.classList.add('error');
-    txt.textContent = 'Caméra refusée — vérifie les permissions';
+    sdot.className = 'err';
+    stxt.textContent = 'Caméra refusée — autorise dans Safari';
     loading.style.display = 'none';
     document.getElementById('start-btn').style.display = '';
-    overlay.classList.remove('hidden');
   }
 }
 
-async function processFrame(faceMesh) {
-  if (!isTracking) return;
-  await faceMesh.send({ image: video });
-  requestAnimationFrame(() => processFrame(faceMesh));
-}
-
-let frameCount = 0;
-function onResults(results) {
-  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-    dot.classList.remove('active');
-    dot.classList.add('error');
-    txt.innerHTML = 'Visage <span style="color:var(--accent2)">perdu</span> — repositionne-toi';
-
-    // Gradually return to center
-    targetX = 0; targetY = 0;
-    return;
+function onResults(r) {
+  if (!r.multiFaceLandmarks?.length) {
+    sdot.className = 'err';
+    stxt.innerHTML = 'Visage <span style="color:var(--c3)">perdu</span>';
+    tX = 0; tY = 0; return;
   }
+  sdot.className = 'on';
+  stxt.innerHTML = 'Tracking <span>actif</span>';
 
-  dot.classList.remove('error');
-  dot.classList.add('active');
-  txt.innerHTML = 'Tracking <span>actif</span>';
+  const lm = r.multiFaceLandmarks[0];
+  const nose=lm[1], forehead=lm[10], chin=lm[152], lc=lm[234], rc=lm[454];
 
-  const lm = results.multiFaceLandmarks[0];
+  const fW   = Math.abs(rc.x - lc.x);
+  const midX = (lc.x + rc.x) / 2;
+  const normX = (nose.x - midX) / (fW / 2);
 
-  // Key landmarks:
-  // 1  = nose tip
-  // 10 = forehead center
-  // 152= chin
-  // 234= left cheek (from user's perspective)
-  // 454= right cheek
-  const nose      = lm[1];
-  const forehead  = lm[10];
-  const chin      = lm[152];
-  const leftCheek = lm[234];
-  const rightCheek= lm[454];
+  const fH   = Math.abs(chin.y - forehead.y);
+  const midY = (forehead.y + chin.y) / 2;
+  const normY = (nose.y - midY) / (fH / 2);
 
-  // Horizontal: nose X relative to midpoint of cheeks
-  const faceWidth = Math.abs(rightCheek.x - leftCheek.x);
-  const faceMidX  = (leftCheek.x + rightCheek.x) / 2;
-  const normX     = (nose.x - faceMidX) / (faceWidth / 2); // -1..1
-
-  // Vertical: nose Y relative to midpoint of forehead+chin
-  const faceHeight = Math.abs(chin.y - forehead.y);
-  const faceMidY   = (forehead.y + chin.y) / 2;
-  const normY      = (nose.y - faceMidY) / (faceHeight / 2); // -1..1
-
-  const MAX_ROT = 28;
-  // rotateY = horizontal pan, rotateX = vertical tilt (inverted)
-  targetY =  normX * MAX_ROT;
-  targetX = -normY * MAX_ROT;
+  const MAX = 32;
+  tY =  normX * MAX;
+  tX = -normY * MAX;
 }
 </script>
 
