@@ -412,8 +412,8 @@ const clock = new THREE.Clock();
   const t = clock.getElapsedTime();
 
   // Smooth camera position — the holographic shift
-  camCurX = lerp(camCurX, camTargetX, 0.09);
-  camCurY = lerp(camCurY, camTargetY, 0.09);
+  camCurX = lerp(camCurX, camTargetX, 0.13);
+  camCurY = lerp(camCurY, camTargetY, 0.13);
 
   // ── HOLOGRAPHIC WINDOW TRICK ──
   // Camera moves in X/Y but ALWAYS looks at origin
