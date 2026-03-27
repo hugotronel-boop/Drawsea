@@ -4,328 +4,127 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>3D Cube Tracker</title>
+<title>Holographic Head Tracker</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+  /* GitHub Pages reset — force dark everywhere */
+  :root { color-scheme: dark; }
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html {
+    background:#04040a !important;
+    background-color:#04040a !important;
+    height:100%; width:100%;
+  }
+  body {
+    background:#04040a !important;
+    background-color:#04040a !important;
+    color:#e0e0e0;
+    width:100%; height:100%;
+    overflow:hidden;
+    font-family:'Space Mono',monospace;
+  }
+  #c {
+    display:block;
+    width:100% !important;
+    height:100% !important;
+    position:fixed;
+    top:0; left:0;
+    background:#04040a;
+  }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-–bg: #06060c;
-–c1: #00c2ff;   /* cyan */
-–c2: #a855f7;   /* violet */
-–c3: #ff2d78;   /* pink */
+/* HUD */
+#hud {
+position:fixed; top:0; left:0; right:0;
+padding:10px 18px;
+display:flex; align-items:center; justify-content:space-between;
+font-size:9px; letter-spacing:.13em; text-transform:uppercase;
+background:rgba(4,4,10,0.85);
+border-bottom:1px solid rgba(0,200,255,0.1);
+backdrop-filter:blur(14px); z-index:100;
+color:rgba(255,255,255,.3);
 }
-
-body {
-background: var(–bg);
-height: 100dvh;
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-overflow: hidden;
-font-family: ‘Space Mono’, monospace;
+#hud-l { display:flex; align-items:center; gap:8px; }
+#hdot {
+width:6px; height:6px; border-radius:50%;
+background:#555; box-shadow:none;
+transition:background .3s, box-shadow .3s;
 }
-
-/* Grid bg */
-body::before {
-content: ‘’;
-position: fixed; inset: 0;
-background-image:
-linear-gradient(rgba(0,194,255,0.035) 1px, transparent 1px),
-linear-gradient(90deg, rgba(0,194,255,0.035) 1px, transparent 1px);
-background-size: 48px 48px;
-pointer-events: none; z-index: 0;
-}
-
-/* Ambient glow */
-body::after {
-content: ‘’;
-position: fixed; inset: 0;
-background:
-radial-gradient(ellipse 70% 50% at 15% 85%, rgba(168,85,247,0.12) 0%, transparent 60%),
-radial-gradient(ellipse 60% 60% at 85% 15%, rgba(0,194,255,0.08) 0%, transparent 60%);
-pointer-events: none; z-index: 0;
-}
-
-/* ───── STATUS BAR ───── */
-#status-bar {
-position: fixed; top: 0; left: 0; right: 0;
-padding: 10px 18px;
-display: flex; align-items: center; gap: 10px;
-font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
-background: rgba(6,6,12,0.85);
-border-bottom: 1px solid rgba(0,194,255,0.1);
-backdrop-filter: blur(12px); z-index: 100;
-color: rgba(255,255,255,0.4);
-}
-#sdot {
-width: 7px; height: 7px; border-radius: 50%;
-background: #333; flex-shrink: 0; transition: background .3s;
-}
-#sdot.on  { background: var(–c1); box-shadow: 0 0 8px var(–c1); animation: blink 1.6s infinite; }
-#sdot.err { background: var(–c3); box-shadow: 0 0 8px var(–c3); }
-#stxt span { color: var(–c1); }
+#hdot.on  { background:#00c8ff; box-shadow:0 0 8px #00c8ff; animation:pulse 1.8s infinite; }
+#hdot.err { background:#ff2d78; box-shadow:0 0 8px #ff2d78; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+#stxt em { color:#00c8ff; font-style:normal; }
+#stxt.err em { color:#ff2d78; }
 
 #coords {
-position: fixed; bottom: 14px; left: 50%;
-transform: translateX(-50%);
-font-size: 9px; letter-spacing: 0.1em;
-color: rgba(255,255,255,0.15); z-index: 100; pointer-events: none;
+position:fixed; bottom:12px; left:50%;
+transform:translateX(-50%);
+font-size:8px; letter-spacing:.1em;
+color:rgba(255,255,255,.12); pointer-events:none; z-index:100;
+white-space:nowrap;
 }
 
-/* ───── WORLD ───── */
-#world-wrap {
-position: relative; z-index: 10;
-width: 100vw; height: 100dvh;
-perspective: 900px;
-perspective-origin: 50% 50%;
-overflow: hidden;
-}
-
-#world {
-position: absolute; inset: 0;
-transform-style: preserve-3d;
-/* rotated by head tracking */
-transform: rotateX(0deg) rotateY(0deg);
-will-change: transform;
-}
-
-/* ───── CUBE BASE ───── */
-.cube {
-position: absolute;
-transform-style: preserve-3d;
-}
-.face {
-position: absolute;
-border: 1px solid;
-display: flex; align-items: center; justify-content: center;
-}
-
-/* ══════════════════════════════
-BIG CUBE  —  premier plan
-size: 160px, translateZ: +120px
-══════════════════════════════ */
-#cube-big {
-width: 160px; height: 160px;
-left: calc(50% - 80px);
-top:  calc(50% - 80px);
-transform: translateZ(120px) rotateX(20deg) rotateY(25deg);
-animation: spin-big 18s linear infinite;
-}
-
-#cube-big .face {
-width: 160px; height: 160px;
-border-color: rgba(0,194,255,0.5);
-background: rgba(0,194,255,0.04);
-}
-/* diagonal line cross */
-#cube-big .face::before, #cube-big .face::after {
-content: ‘’;
-position: absolute; inset: 0;
-background: linear-gradient(135deg, transparent 48%, rgba(0,194,255,0.12) 49%, rgba(0,194,255,0.12) 51%, transparent 52%);
-}
-#cube-big .face::after {
-background: linear-gradient(-135deg, transparent 48%, rgba(0,194,255,0.12) 49%, rgba(0,194,255,0.12) 51%, transparent 52%);
-}
-/* corner dots */
-#cube-big .face .dot {
-width: 6px; height: 6px; border-radius: 50%;
-background: var(–c1);
-box-shadow: 0 0 10px var(–c1);
-position: absolute;
-}
-#cube-big .face .dot:nth-child(1) { top: 8px; left: 8px; }
-#cube-big .face .dot:nth-child(2) { top: 8px; right: 8px; }
-#cube-big .face .dot:nth-child(3) { bottom: 8px; left: 8px; }
-#cube-big .face .dot:nth-child(4) { bottom: 8px; right: 8px; }
-
-#cube-big .front  { transform: translateZ(80px); }
-#cube-big .back   { transform: rotateY(180deg) translateZ(80px); }
-#cube-big .left   { transform: rotateY(-90deg) translateZ(80px); }
-#cube-big .right  { transform: rotateY( 90deg) translateZ(80px); }
-#cube-big .top    { transform: rotateX( 90deg) translateZ(80px); }
-#cube-big .bottom { transform: rotateX(-90deg) translateZ(80px); }
-
-/* ══════════════════════════════
-MEDIUM CUBE  — milieu
-size: 90px, translateZ: -60px, décalé
-══════════════════════════════ */
-#cube-mid {
-width: 90px; height: 90px;
-left: calc(50% + 60px);
-top:  calc(50% - 80px);
-transform: translateZ(-60px) rotateX(-15deg) rotateY(40deg);
-animation: spin-mid 24s linear infinite reverse;
-}
-#cube-mid .face {
-width: 90px; height: 90px;
-border-color: rgba(168,85,247,0.55);
-background: rgba(168,85,247,0.04);
-}
-#cube-mid .face::before {
-content: ‘’;
-position: absolute; inset: 0;
-background: linear-gradient(135deg, transparent 48%, rgba(168,85,247,0.15) 49%, rgba(168,85,247,0.15) 51%, transparent 52%);
-}
-#cube-mid .face .dot {
-width: 4px; height: 4px; border-radius: 50%;
-background: var(–c2);
-box-shadow: 0 0 8px var(–c2);
-position: absolute;
-}
-#cube-mid .face .dot:nth-child(1) { top: 5px; left: 5px; }
-#cube-mid .face .dot:nth-child(2) { top: 5px; right: 5px; }
-#cube-mid .face .dot:nth-child(3) { bottom: 5px; left: 5px; }
-#cube-mid .face .dot:nth-child(4) { bottom: 5px; right: 5px; }
-
-#cube-mid .front  { transform: translateZ(45px); }
-#cube-mid .back   { transform: rotateY(180deg) translateZ(45px); }
-#cube-mid .left   { transform: rotateY(-90deg) translateZ(45px); }
-#cube-mid .right  { transform: rotateY( 90deg) translateZ(45px); }
-#cube-mid .top    { transform: rotateX( 90deg) translateZ(45px); }
-#cube-mid .bottom { transform: rotateX(-90deg) translateZ(45px); }
-
-/* ══════════════════════════════
-SMALL CUBE  —  arrière-plan loin
-size: 50px, translateZ: -260px
-══════════════════════════════ */
-#cube-small {
-width: 50px; height: 50px;
-left: calc(50% - 130px);
-top:  calc(50% + 40px);
-transform: translateZ(-260px) rotateX(30deg) rotateY(-20deg);
-animation: spin-small 30s linear infinite;
-}
-#cube-small .face {
-width: 50px; height: 50px;
-border-color: rgba(255,45,120,0.5);
-background: rgba(255,45,120,0.03);
-}
-#cube-small .face .dot {
-width: 3px; height: 3px; border-radius: 50%;
-background: var(–c3);
-box-shadow: 0 0 6px var(–c3);
-position: absolute;
-}
-#cube-small .face .dot:nth-child(1) { top: 4px; left: 4px; }
-#cube-small .face .dot:nth-child(2) { top: 4px; right: 4px; }
-#cube-small .face .dot:nth-child(3) { bottom: 4px; left: 4px; }
-#cube-small .face .dot:nth-child(4) { bottom: 4px; right: 4px; }
-
-#cube-small .front  { transform: translateZ(25px); }
-#cube-small .back   { transform: rotateY(180deg) translateZ(25px); }
-#cube-small .left   { transform: rotateY(-90deg) translateZ(25px); }
-#cube-small .right  { transform: rotateY( 90deg) translateZ(25px); }
-#cube-small .top    { transform: rotateX( 90deg) translateZ(25px); }
-#cube-small .bottom { transform: rotateX(-90deg) translateZ(25px); }
-
-/* ══════════════════════════════
-TINY CUBE  —  tout au fond
-══════════════════════════════ */
-#cube-tiny {
-width: 28px; height: 28px;
-left: calc(50% + 100px);
-top:  calc(50% + 60px);
-transform: translateZ(-420px) rotateX(-10deg) rotateY(60deg);
-animation: spin-mid 40s linear infinite;
-}
-#cube-tiny .face {
-width: 28px; height: 28px;
-border-color: rgba(0,194,255,0.3);
-background: rgba(0,194,255,0.02);
-}
-#cube-tiny .front  { transform: translateZ(14px); }
-#cube-tiny .back   { transform: rotateY(180deg) translateZ(14px); }
-#cube-tiny .left   { transform: rotateY(-90deg) translateZ(14px); }
-#cube-tiny .right  { transform: rotateY( 90deg) translateZ(14px); }
-#cube-tiny .top    { transform: rotateX( 90deg) translateZ(14px); }
-#cube-tiny .bottom { transform: rotateX(-90deg) translateZ(14px); }
-
-/* ══════════════════════
-Floating particles (CSS only)
-══════════════════════ */
-.particle {
-position: absolute;
-border-radius: 50%;
-pointer-events: none;
-}
-
-/* Spin animations — INDEPENDENT of head tracking */
-@keyframes spin-big   { to { transform: translateZ(120px) rotateX(360deg) rotateY(360deg); } }
-@keyframes spin-mid   { to { transform: translateZ(-60px) rotateX(-360deg) rotateY(400deg); } }
-@keyframes spin-small { to { transform: translateZ(-260px) rotateX(390deg) rotateY(-360deg); } }
-
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
-
-/* ───── OVERLAY ───── */
+/* OVERLAY */
 #overlay {
-position: fixed; inset: 0;
-background: var(–bg);
-display: flex; flex-direction: column;
-align-items: center; justify-content: center; gap: 20px;
-z-index: 200; transition: opacity .6s;
+position:fixed; inset:0;
+background:#04040a;
+display:flex; flex-direction:column;
+align-items:center; justify-content:center; gap:22px;
+z-index:200; transition:opacity .7s;
 }
-#overlay.hidden { opacity: 0; pointer-events: none; }
+#overlay.hidden { opacity:0; pointer-events:none; }
 
 #overlay h1 {
-font-size: clamp(34px,9vw,56px);
-font-weight: 700; letter-spacing: -0.04em;
-text-align: center;
-background: linear-gradient(130deg, #fff 20%, var(–c1) 60%, var(–c2));
--webkit-background-clip: text; -webkit-text-fill-color: transparent;
-background-clip: text; padding: 0 20px;
+font-size:clamp(30px,8vw,52px); font-weight:700;
+letter-spacing:-.03em; text-align:center;
+background:linear-gradient(130deg,#fff 20%,#00c8ff 55%,#a855f7);
+-webkit-background-clip:text; -webkit-text-fill-color:transparent;
+background-clip:text; padding:0 24px;
 }
 #overlay p {
-font-size: 11px; color: rgba(255,255,255,.3);
-letter-spacing: .06em; text-align: center;
-max-width: 240px; line-height: 1.9;
+font-size:10px; color:rgba(255,255,255,.3);
+letter-spacing:.07em; text-align:center;
+max-width:260px; line-height:2;
 }
-
-/* Preview cubes in overlay */
-.preview-wrap {
-position: relative;
-width: 180px; height: 120px;
-perspective: 600px;
-margin: 8px 0;
-}
-.preview-scene {
-position: absolute; inset: 0;
-transform-style: preserve-3d;
-animation: preview-rotate 6s ease-in-out infinite alternate;
-}
-@keyframes preview-rotate {
-0%   { transform: rotateX(10deg) rotateY(-20deg); }
-100% { transform: rotateX(-10deg) rotateY(20deg); }
-}
-.pc { position: absolute; transform-style: preserve-3d; }
-.pf { position: absolute; border: 1px solid; }
 
 #start-btn {
-padding: 13px 34px;
-background: transparent;
-border: 1px solid var(–c1); border-radius: 100px;
-color: var(–c1);
-font-family: ‘Space Mono’, monospace;
-font-size: 11px; letter-spacing: .15em; text-transform: uppercase;
-cursor: pointer; position: relative; overflow: hidden;
-transition: color .3s, box-shadow .3s;
+padding:13px 36px;
+background:transparent;
+border:1px solid #00c8ff; border-radius:100px;
+color:#00c8ff;
+font-family:‘Space Mono’,monospace;
+font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+cursor:pointer; position:relative; overflow:hidden;
+transition:color .3s, box-shadow .3s;
 }
 #start-btn::before {
-content: ‘’; position: absolute; inset: 0;
-background: var(–c1); transform: scaleX(0); transform-origin: left;
-transition: transform .3s;
+content:’’; position:absolute; inset:0;
+background:#00c8ff; transform:scaleX(0); transform-origin:left;
+transition:transform .3s;
 }
-#start-btn:active::before { transform: scaleX(1); }
-#start-btn:active { color: #06060c; box-shadow: 0 0 24px rgba(0,194,255,.35); }
-#start-btn span { position: relative; z-index: 1; }
+#start-btn:hover::before,
+#start-btn:active::before { transform:scaleX(1); }
+#start-btn:hover, #start-btn:active { color:#04040a; box-shadow:0 0 24px rgba(0,200,255,.4); }
+#start-btn span { position:relative; z-index:1; }
 
 #loading {
-display: none; font-size: 10px;
-color: rgba(255,255,255,.25); letter-spacing: .1em;
-animation: blink 1s infinite;
+display:none; font-size:10px;
+color:rgba(255,255,255,.25); letter-spacing:.1em;
+animation:blink 1s infinite;
 }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
+
+/* mode toggle */
+#mode-btn {
+position:fixed; bottom:36px; right:16px;
+padding:7px 14px;
+background:rgba(4,4,10,0.8);
+border:1px solid rgba(0,200,255,0.2); border-radius:100px;
+color:rgba(255,255,255,.35);
+font-family:‘Space Mono’,monospace;
+font-size:8px; letter-spacing:.1em; text-transform:uppercase;
+cursor:pointer; z-index:100;
+transition:border-color .2s, color .2s;
+}
+#mode-btn:hover { border-color:rgba(0,200,255,.5); color:#00c8ff; }
 
 /* hidden video */
 #video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
@@ -334,132 +133,176 @@ animation: blink 1s infinite;
 </head>
 <body>
 
+<canvas id="c"></canvas>
+<video id="video" playsinline autoplay muted></video>
+
 <!-- OVERLAY -->
 
 <div id="overlay">
-  <h1>3D Cubes<br>Head Track</h1>
-
-  <!-- Animated preview -->
-
-  <div class="preview-wrap">
-    <div class="preview-scene" id="ps"></div>
-  </div>
-
-  <p>Ta tête déplace la perspective —<br>les cubes bougent en profondeur.</p>
+  <h1>Holographic<br>Head Tracker</h1>
+  <p>Ta tête déplace la caméra —<br>vrai rendu holographique WebGL.</p>
   <button id="start-btn" onclick="startTracking()"><span>Activer caméra</span></button>
-  <div id="loading">Chargement IA…</div>
+  <div id="loading">Chargement MediaPipe + Three.js…</div>
 </div>
 
-<!-- STATUS -->
+<!-- HUD -->
 
-<div id="status-bar">
-  <div id="sdot"></div>
-  <div id="stxt">En attente de la caméra</div>
+<div id="hud">
+  <div id="hud-l">
+    <div id="hdot"></div>
+    <div id="stxt">En attente…</div>
+  </div>
+  <div>Three.js · MediaPipe</div>
 </div>
 
-<video id="video" playsinline autoplay muted></video>
+<button id="mode-btn" onclick="toggleMode()">⇄ Souris</button>
 
-<!-- ══ WORLD ══ -->
+<div id="coords">cam x:0.00  y:0.00</div>
 
-<div id="world-wrap">
-  <div id="world">
+<!-- Three.js -->
 
-```
-<!-- BIG CUBE -->
-<div class="cube" id="cube-big">
-  <div class="face front" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face back"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face left"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face right" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face top"   ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face bottom"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- MID CUBE -->
-<div class="cube" id="cube-mid">
-  <div class="face front" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face back"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face left"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face right" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face top"   ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face bottom"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-</div>
-
-<!-- SMALL CUBE -->
-<div class="cube" id="cube-small">
-  <div class="face front" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face back"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face left"  ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face right" ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face top"   ><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-  <div class="face bottom"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-</div>
-
-<!-- TINY CUBE -->
-<div class="cube" id="cube-tiny">
-  <div class="face front"></div>
-  <div class="face back" ></div>
-  <div class="face left" ></div>
-  <div class="face right"></div>
-  <div class="face top"  ></div>
-  <div class="face bottom"></div>
-</div>
-```
-
-  </div><!-- /world -->
-</div><!-- /world-wrap -->
-
-<div id="coords">X: 0.0°  Y: 0.0°</div>
-
-<!-- MediaPipe -->
+<!-- MediaPipe FaceMesh -->
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
 <script>
-/* ── Preview cubes in overlay ─────────────────────── */
-(function buildPreview() {
-  const ps = document.getElementById('ps');
-  const defs = [
-    { s:70, x:30, y:20, z:30, col:'rgba(0,194,255,0.5)', bg:'rgba(0,194,255,0.04)' },
-    { s:36, x:110, y:40, z:10, col:'rgba(168,85,247,0.5)', bg:'rgba(168,85,247,0.04)' },
-    { s:20, x:10,  y:60, z:-40, col:'rgba(255,45,120,0.4)', bg:'transparent' },
-  ];
-  defs.forEach(d => {
-    const c = document.createElement('div');
-    c.className = 'pc';
-    c.style.cssText = `width:${d.s}px;height:${d.s}px;left:${d.x}px;top:${d.y}px;transform:translateZ(${d.z}px) rotateX(20deg) rotateY(25deg);transform-style:preserve-3d;animation:spin-big ${8+d.s*.2}s linear infinite`;
-    const h = d.s/2;
-    const faces = ['translateZ','rotateY(180deg) translateZ','rotateY(-90deg) translateZ','rotateY(90deg) translateZ','rotateX(90deg) translateZ','rotateX(-90deg) translateZ'];
-    faces.forEach(f => {
-      const face = document.createElement('div');
-      face.className = 'pf';
-      face.style.cssText = `width:${d.s}px;height:${d.s}px;border-color:${d.col};background:${d.bg};transform:${f}(${h}px)`;
-      c.appendChild(face);
-    });
-    ps.appendChild(c);
-  });
-})();
+// ═══════════════════════════════════════════════
+//  THREE.JS SCENE
+// ═══════════════════════════════════════════════
+const canvas   = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x04040a, 1);
 
-/* ── Tracking ────────────────────────────────────── */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x04040a);  // force black — fixes GitHub Pages
+
+const cam = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+cam.position.set(0, 0, 5);
+cam.lookAt(0, 0, 0);
+
+// ── Materials ──
+function edgeMat(hex, op=0.85) {
+  return new THREE.LineBasicMaterial({ color:hex, transparent:true, opacity:op });
+}
+function fillMat(hex) {
+  return new THREE.MeshBasicMaterial({ color:hex, transparent:true, opacity:0.04, side:THREE.FrontSide });
+}
+function makeEdges(geo, mat) {
+  return new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
+}
+
+// ── Cubes ──
+const CUBES = [
+  { s:1.6,  x: 0,    y: 0,    z: 1.8,  c:0x00c8ff, sx:.003, sy:.005 },
+  { s:0.9,  x: 1.4,  y: 0.6,  z: 0.2,  c:0xa855f7, sx:.005, sy:.003 },
+  { s:0.55, x:-1.5,  y:-0.5,  z:-0.8,  c:0xff2d78, sx:.004, sy:.007 },
+  { s:0.32, x: 1.8,  y:-1.0,  z:-1.8,  c:0x00c8ff, sx:.007, sy:.004 },
+  { s:0.22, x:-1.0,  y: 1.2,  z:-2.8,  c:0xa855f7, sx:.006, sy:.005 },
+  { s:0.14, x: 0.5,  y:-1.4,  z:-4.0,  c:0xff2d78, sx:.008, sy:.006 },
+];
+
+const meshes = CUBES.map(d => {
+  const geo   = new THREE.BoxGeometry(d.s, d.s, d.s);
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(geo, fillMat(d.c)));
+  group.add(makeEdges(geo, edgeMat(d.c)));
+  // corner dots
+  if (d.s > 0.2) {
+    const h = d.s/2;
+    const verts = new Float32Array([
+      -h,-h,-h, h,-h,-h,-h, h,-h, h, h,-h,
+      -h,-h, h, h,-h, h,-h, h, h, h, h, h
+    ]);
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(verts,3));
+    group.add(new THREE.Points(pGeo, new THREE.PointsMaterial({
+      color:d.c, size:d.s*.065, transparent:true, opacity:.9, sizeAttenuation:true
+    })));
+  }
+  group.position.set(d.x, d.y, d.z);
+  scene.add(group);
+  return { group, d };
+});
+
+// ── Grid ──
+const grid = new THREE.GridHelper(14, 20, 0x001520, 0x001520);
+grid.position.y = -2.5;
+grid.material.transparent = true; grid.material.opacity = 0.7;
+scene.add(grid);
+
+// ── Particles ──
+const PCOUNT = 140;
+const pPos = new Float32Array(PCOUNT*3);
+for (let i=0;i<PCOUNT;i++){
+  pPos[i*3]   = (Math.random()-.5)*12;
+  pPos[i*3+1] = (Math.random()-.5)*9;
+  pPos[i*3+2] = (Math.random()-.5)*9-2;
+}
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
+  color:0x00c8ff, size:.022, transparent:true, opacity:.3, sizeAttenuation:true
+}));
+scene.add(particles);
+
+// ── Connection lines ──
+[[0,1],[1,2],[2,3],[3,4]].forEach(([a,b]) => {
+  const pts = [
+    new THREE.Vector3(CUBES[a].x, CUBES[a].y, CUBES[a].z),
+    new THREE.Vector3(CUBES[b].x, CUBES[b].y, CUBES[b].z),
+  ];
+  scene.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color:0x00c8ff, transparent:true, opacity:.1 })
+  ));
+});
+
+// ═══════════════════════════════════════════════
+//  INPUT — HEAD TRACKING + MOUSE FALLBACK
+// ═══════════════════════════════════════════════
 const video   = document.getElementById('video');
-const world   = document.getElementById('world');
-const sdot    = document.getElementById('sdot');
+const hdot    = document.getElementById('hdot');
 const stxt    = document.getElementById('stxt');
-const coords  = document.getElementById('coords');
 const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
+const modeBtn = document.getElementById('mode-btn');
+const coordEl = document.getElementById('coords');
 
-let tX=0, tY=0, cX=0, cY=0;
+const CAM_RANGE_X = 1.8;
+const CAM_RANGE_Y = 1.1;
+
+let camTargetX = 0, camTargetY = 0;
+let camX = 0, camY = 0;
+let mode = 'face'; // 'face' | 'mouse'
+let isTracking = false;
+
 function lerp(a,b,t){ return a+(b-a)*t; }
 
-(function animate(){
-  requestAnimationFrame(animate);
-  cX = lerp(cX, tX, 0.1);
-  cY = lerp(cY, tY, 0.1);
-  world.style.transform = `rotateX(${cX}deg) rotateY(${cY}deg)`;
-  coords.textContent = `X: ${cY.toFixed(1)}°   Y: ${cX.toFixed(1)}°`;
-})();
+// ── Mouse / Touch (fallback or manual) ──
+function setPointer(px, py) {
+  if (mode !== 'mouse') return;
+  const nx = (px / window.innerWidth  - .5) * 2;
+  const ny = (py / window.innerHeight - .5) * 2;
+  camTargetX =  nx * CAM_RANGE_X;
+  camTargetY = -ny * CAM_RANGE_Y;
+}
+window.addEventListener('mousemove', e => setPointer(e.clientX, e.clientY));
+window.addEventListener('touchmove', e => {
+  e.preventDefault();
+  setPointer(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive:false });
 
+function toggleMode() {
+  if (!isTracking) return;
+  mode = mode === 'face' ? 'mouse' : 'face';
+  modeBtn.textContent = mode === 'face' ? '⇄ Souris' : '⇄ Face';
+}
+
+// ── MediaPipe Face Tracking ──
 async function startTracking() {
   loading.style.display = 'block';
   document.getElementById('start-btn').style.display = 'none';
@@ -467,56 +310,148 @@ async function startTracking() {
   const fm = new FaceMesh({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
   });
-  fm.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:.5, minTrackingConfidence:.5 });
-  fm.onResults(onResults);
+  fm.setOptions({
+    maxNumFaces:1,
+    refineLandmarks:false,
+    minDetectionConfidence:.5,
+    minTrackingConfidence:.5
+  });
+  fm.onResults(onFaceResults);
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:'user', width:{ideal:320}, height:{ideal:240} }
+      video:{ facingMode:'user', width:{ideal:320}, height:{ideal:240} }
     });
     video.srcObject = stream;
     video.onloadedmetadata = () => {
       video.play();
       overlay.classList.add('hidden');
-      sdot.className = 'on';
-      stxt.innerHTML = 'Tracking <span>actif</span>';
-      (async function loop(){
-        await fm.send({image: video});
+      hdot.className = 'on';
+      stxt.innerHTML = 'Face <em>tracking actif</em>';
+      isTracking = true;
+      mode = 'face';
+      modeBtn.textContent = '⇄ Souris';
+
+      // fallback: if face not found after 3s, switch to mouse
+      setTimeout(() => {
+        if (!faceDetected && isTracking) {
+          mode = 'mouse';
+          modeBtn.textContent = '⇄ Face';
+          hdot.className = 'on';
+          stxt.innerHTML = '<em>Souris</em> mode (visage non détecté)';
+        }
+      }, 3000);
+
+      (async function loop() {
+        if (!isTracking) return;
+        await fm.send({ image: video });
         requestAnimationFrame(loop);
       })();
     };
   } catch(e) {
-    sdot.className = 'err';
-    stxt.textContent = 'Caméra refusée — autorise dans Safari';
+    // Camera denied → switch to mouse mode automatically
+    hdot.className = 'on';
+    stxt.innerHTML = '<em>Souris</em> mode (caméra refusée)';
+    overlay.classList.add('hidden');
+    isTracking = true;
+    mode = 'mouse';
+    modeBtn.textContent = '⇄ Face';
     loading.style.display = 'none';
-    document.getElementById('start-btn').style.display = '';
+    // Bind full mouse/touch
+    window.removeEventListener('mousemove', setPointer);
+    window.addEventListener('mousemove', e => {
+      const nx = (e.clientX/window.innerWidth-.5)*2;
+      const ny = (e.clientY/window.innerHeight-.5)*2;
+      camTargetX = nx*CAM_RANGE_X;
+      camTargetY = -ny*CAM_RANGE_Y;
+    });
+    window.addEventListener('touchmove', e=>{
+      e.preventDefault();
+      const t=e.touches[0];
+      const nx=(t.clientX/window.innerWidth-.5)*2;
+      const ny=(t.clientY/window.innerHeight-.5)*2;
+      camTargetX=nx*CAM_RANGE_X;
+      camTargetY=-ny*CAM_RANGE_Y;
+    },{ passive:false });
   }
 }
 
-function onResults(r) {
+let faceDetected = false;
+
+function onFaceResults(r) {
   if (!r.multiFaceLandmarks?.length) {
-    sdot.className = 'err';
-    stxt.innerHTML = 'Visage <span style="color:var(--c3)">perdu</span>';
-    tX = 0; tY = 0; return;
+    faceDetected = false;
+    if (mode === 'face') {
+      hdot.className = 'err';
+      stxt.innerHTML = 'Visage <em style="color:#ff2d78">perdu</em>';
+      camTargetX = lerp(camTargetX, 0, .05);
+      camTargetY = lerp(camTargetY, 0, .05);
+    }
+    return;
   }
-  sdot.className = 'on';
-  stxt.innerHTML = 'Tracking <span>actif</span>';
+
+  faceDetected = true;
+  if (mode !== 'face') return;
+
+  hdot.className = 'on';
+  stxt.innerHTML = 'Face <em>tracking actif</em>';
 
   const lm = r.multiFaceLandmarks[0];
   const nose=lm[1], forehead=lm[10], chin=lm[152], lc=lm[234], rc=lm[454];
 
   const fW   = Math.abs(rc.x - lc.x);
   const midX = (lc.x + rc.x) / 2;
-  const normX = (nose.x - midX) / (fW / 2);
+  const normX = (nose.x - midX) / (fW / 2);  // -1..1
 
   const fH   = Math.abs(chin.y - forehead.y);
   const midY = (forehead.y + chin.y) / 2;
-  const normY = (nose.y - midY) / (fH / 2);
+  const normY = (nose.y - midY) / (fH / 2);  // -1..1
 
-  const MAX = 32;
-  tY =  normX * MAX;
-  tX = -normY * MAX;
+  // ── THE HOLOGRAPHIC TRICK ──
+  // Map head position → camera offset (not rotation!)
+  camTargetX =  normX * CAM_RANGE_X;
+  camTargetY = -normY * CAM_RANGE_Y;
 }
+
+// ═══════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+(function tick() {
+  requestAnimationFrame(tick);
+  const t = clock.getElapsedTime();
+
+  // Smooth camera shift — HOLOGRAPHIC effect
+  camX = lerp(camX, camTargetX, 0.08);
+  camY = lerp(camY, camTargetY, 0.08);
+
+  cam.position.x = camX;
+  cam.position.y = camY;
+  cam.position.z = 5;
+  cam.lookAt(0, 0, 0);  // always looks at center — creates window illusion
+
+  // Spin cubes
+  meshes.forEach(({ group, d }, i) => {
+    group.rotation.x += d.sx;
+    group.rotation.y += d.sy;
+    group.position.y = d.y + Math.sin(t * 0.35 + i * 1.1) * 0.07;
+  });
+
+  particles.rotation.y = t * 0.018;
+  grid.position.x = camX * -.25;
+
+  renderer.render(scene, cam);
+
+  coordEl.textContent = `cam  x:${camX.toFixed(2)}  y:${camY.toFixed(2)}  z:5.00`;
+})();
+
+// Resize
+window.addEventListener('resize', () => {
+  cam.aspect = window.innerWidth / window.innerHeight;
+  cam.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 
 </body>
