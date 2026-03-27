@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Holographic Window</title>
+<title>Holographic Hand Control</title>
 <style>
   :root { color-scheme: dark; }
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
@@ -16,131 +15,147 @@
     font-family:'Space Mono',monospace;
   }
   #c {
-    display:block;
-    position:fixed; top:0; left:0;
+    display:block; position:fixed; top:0; left:0;
     width:100%; height:100%;
     background:#04040a;
   }
 
-/* HUD */
-#hud {
-position:fixed; top:0; left:0; right:0;
-padding:10px 18px;
-display:flex; align-items:center; justify-content:space-between;
-font-size:9px; letter-spacing:.13em; text-transform:uppercase;
-background:rgba(4,4,10,0.85);
-border-bottom:1px solid rgba(0,200,255,0.08);
-backdrop-filter:blur(14px); z-index:100;
-color:rgba(255,255,255,.3);
-}
-#hud-l { display:flex; align-items:center; gap:8px; }
-#hdot {
-width:6px; height:6px; border-radius:50%;
-background:#333; transition:background .3s, box-shadow .3s;
-}
-#hdot.on  { background:#00c8ff; box-shadow:0 0 8px #00c8ff; animation:pulse 1.8s infinite; }
-#hdot.err { background:#ff2d78; box-shadow:0 0 8px #ff2d78; animation:none; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
-#stxt em { color:#00c8ff; font-style:normal; }
+  /* HUD */
+  #hud {
+    position:fixed; top:0; left:0; right:0;
+    padding:10px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:9px; letter-spacing:.13em; text-transform:uppercase;
+    background:rgba(4,4,10,0.85);
+    border-bottom:1px solid rgba(0,200,255,0.08);
+    backdrop-filter:blur(14px); z-index:100;
+    color:rgba(255,255,255,.3);
+  }
+  #hud-l { display:flex; align-items:center; gap:8px; }
+  #hdot {
+    width:6px; height:6px; border-radius:50%;
+    background:#333; transition:background .3s, box-shadow .3s;
+  }
+  #hdot.on  { background:#00c8ff; box-shadow:0 0 8px #00c8ff; animation:pulse 1.8s infinite; }
+  #hdot.err { background:#ff2d78; box-shadow:0 0 8px #ff2d78; animation:none; }
+  #hdot.fist{ background:#a855f7; box-shadow:0 0 8px #a855f7; animation:none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+  #stxt em { color:#00c8ff; font-style:normal; }
 
-/* mini webcam preview */
-#preview-wrap {
-position:fixed; bottom:16px; right:16px;
-width:120px; height:90px;
-border:1px solid rgba(0,200,255,0.2);
-border-radius:8px; overflow:hidden;
-z-index:100; opacity:0;
-transition:opacity .5s;
-background:#000;
-}
-#preview-wrap.visible { opacity:1; }
-#preview {
-width:100%; height:100%;
-object-fit:cover;
-transform:scaleX(-1); /* mirror */
-filter:brightness(.7) contrast(1.1);
-}
-/* face dot overlay on preview */
-#face-dot {
-position:absolute; width:8px; height:8px;
-border-radius:50%; background:#00c8ff;
-box-shadow:0 0 8px #00c8ff;
-transform:translate(-50%,-50%);
-pointer-events:none;
-transition:left .05s, top .05s;
-}
-#preview-label {
-position:absolute; bottom:4px; left:50%;
-transform:translateX(-50%);
-font-size:7px; letter-spacing:.1em;
-color:rgba(255,255,255,.4);
-white-space:nowrap;
-}
+  /* Gesture badge */
+  #gesture-badge {
+    position:fixed; top:48px; left:50%;
+    transform:translateX(-50%);
+    padding:6px 16px;
+    border:1px solid rgba(0,200,255,0.2);
+    border-radius:100px;
+    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    color:rgba(255,255,255,.4);
+    background:rgba(4,4,10,0.7);
+    backdrop-filter:blur(10px);
+    z-index:100; opacity:0;
+    transition:opacity .3s, color .3s, border-color .3s;
+    pointer-events:none;
+  }
+  #gesture-badge.show { opacity:1; }
+  #gesture-badge.pinch { color:#00c8ff; border-color:rgba(0,200,255,.5); }
+  #gesture-badge.fist  { color:#a855f7; border-color:rgba(168,85,247,.5); }
+  #gesture-badge.open  { color:#ff2d78; border-color:rgba(255,45,120,.5); }
 
-#coords {
-position:fixed; bottom:16px; left:16px;
-font-size:8px; letter-spacing:.1em;
-color:rgba(255,255,255,.15); pointer-events:none; z-index:100;
-line-height:1.8;
-}
+  /* Webcam preview */
+  #preview-wrap {
+    position:fixed; bottom:16px; right:16px;
+    width:140px; height:105px;
+    border:1px solid rgba(0,200,255,0.2);
+    border-radius:10px; overflow:hidden;
+    z-index:100; opacity:0; transition:opacity .5s;
+    background:#000;
+  }
+  #preview-wrap.visible { opacity:1; }
+  #preview {
+    width:100%; height:100%;
+    object-fit:cover;
+    transform:scaleX(-1);
+    filter:brightness(.65) contrast(1.1);
+  }
+  /* Hand skeleton canvas overlay */
+  #hand-canvas {
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    pointer-events:none;
+  }
+  #preview-label {
+    position:absolute; bottom:4px; left:50%;
+    transform:translateX(-50%);
+    font-size:7px; letter-spacing:.1em;
+    color:rgba(255,255,255,.35); white-space:nowrap;
+  }
 
-/* OVERLAY */
-#overlay {
-position:fixed; inset:0;
-background:#04040a;
-display:flex; flex-direction:column;
-align-items:center; justify-content:center; gap:20px;
-z-index:200; transition:opacity .7s;
-}
-#overlay.hidden { opacity:0; pointer-events:none; }
+  /* Info bottom left */
+  #info {
+    position:fixed; bottom:16px; left:16px;
+    font-size:8px; letter-spacing:.08em;
+    color:rgba(255,255,255,.15); z-index:100;
+    line-height:2; pointer-events:none;
+  }
+  #info span { color:rgba(0,200,255,.5); }
 
-#overlay h1 {
-font-size:clamp(28px,7vw,48px); font-weight:700;
-letter-spacing:-.03em; text-align:center;
-background:linear-gradient(130deg,#fff 20%,#00c8ff 55%,#a855f7);
--webkit-background-clip:text; -webkit-text-fill-color:transparent;
-background-clip:text; padding:0 24px; line-height:1.1;
-}
-#overlay p {
-font-size:10px; color:rgba(255,255,255,.3);
-letter-spacing:.06em; text-align:center;
-max-width:280px; line-height:2;
-}
-#overlay small {
-font-size:9px; color:rgba(255,255,255,.18);
-letter-spacing:.05em; text-align:center;
-}
+  /* OVERLAY */
+  #overlay {
+    position:fixed; inset:0; background:#04040a;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px;
+    z-index:200; transition:opacity .7s;
+  }
+  #overlay.hidden { opacity:0; pointer-events:none; }
+  #overlay h1 {
+    font-size:clamp(26px,7vw,46px); font-weight:700;
+    letter-spacing:-.03em; text-align:center;
+    background:linear-gradient(130deg,#fff 20%,#00c8ff 55%,#a855f7);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text; padding:0 24px; line-height:1.15;
+  }
+  #overlay p {
+    font-size:10px; color:rgba(255,255,255,.3);
+    letter-spacing:.06em; text-align:center;
+    max-width:290px; line-height:2.1;
+  }
+  .gesture-list {
+    display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    max-width:300px;
+  }
+  .gl {
+    padding:6px 12px;
+    border:1px solid rgba(255,255,255,.1); border-radius:100px;
+    font-size:9px; letter-spacing:.08em;
+    color:rgba(255,255,255,.35);
+  }
+  #start-btn {
+    margin-top:4px; padding:13px 36px;
+    background:transparent;
+    border:1px solid #00c8ff; border-radius:100px;
+    color:#00c8ff; font-family:'Space Mono',monospace;
+    font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+    cursor:pointer; position:relative; overflow:hidden;
+    transition:color .3s, box-shadow .3s;
+  }
+  #start-btn::before {
+    content:''; position:absolute; inset:0;
+    background:#00c8ff; transform:scaleX(0); transform-origin:left;
+    transition:transform .3s;
+  }
+  #start-btn:hover::before, #start-btn:active::before { transform:scaleX(1); }
+  #start-btn:hover, #start-btn:active { color:#04040a; box-shadow:0 0 24px rgba(0,200,255,.4); }
+  #start-btn span { position:relative; z-index:1; }
+  #loading {
+    display:none; font-size:10px;
+    color:rgba(255,255,255,.25); letter-spacing:.1em;
+    animation:blink 1s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
 
-#start-btn {
-padding:13px 36px;
-background:transparent;
-border:1px solid #00c8ff; border-radius:100px;
-color:#00c8ff;
-font-family:‘Space Mono’,monospace;
-font-size:11px; letter-spacing:.15em; text-transform:uppercase;
-cursor:pointer; position:relative; overflow:hidden;
-transition:color .3s, box-shadow .3s;
-}
-#start-btn::before {
-content:’’; position:absolute; inset:0;
-background:#00c8ff; transform:scaleX(0); transform-origin:left;
-transition:transform .3s;
-}
-#start-btn:hover::before,
-#start-btn:active::before { transform:scaleX(1); }
-#start-btn:hover, #start-btn:active { color:#04040a; box-shadow:0 0 24px rgba(0,200,255,.4); }
-#start-btn span { position:relative; z-index:1; }
-
-#loading {
-display:none; font-size:10px;
-color:rgba(255,255,255,.25); letter-spacing:.1em;
-animation:blink 1s infinite;
-}
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
-
-#video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
+  #video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
 </style>
-
 </head>
 <body>
 
@@ -148,47 +163,52 @@ animation:blink 1s infinite;
 <video id="video" playsinline autoplay muted></video>
 
 <!-- OVERLAY -->
-
 <div id="overlay">
-  <h1>Holographic<br>Window</h1>
-  <p>Déplace-toi physiquement<br>gauche / droite / haut / bas —<br>la fenêtre 3D suit ta position.</p>
-  <small>Comme regarder par une vraie fenêtre.</small>
+  <h1>Hand<br>Hologram</h1>
+  <p>Bouge ta main devant la caméra —<br>la scène 3D suit ta paume.</p>
+  <div class="gesture-list">
+    <div class="gl">✋ déplacer</div>
+    <div class="gl">🤏 pincer → zoom</div>
+    <div class="gl">✊ poing → explosion</div>
+  </div>
   <button id="start-btn" onclick="startTracking()"><span>Activer caméra</span></button>
-  <div id="loading">Chargement MediaPipe…</div>
+  <div id="loading">Chargement MediaPipe Hands…</div>
 </div>
 
 <!-- HUD -->
-
 <div id="hud">
   <div id="hud-l">
     <div id="hdot"></div>
     <div id="stxt">En attente…</div>
   </div>
-  <div style="color:rgba(255,255,255,.15)">WebGL · MediaPipe</div>
+  <div style="color:rgba(255,255,255,.15)">Three.js · MediaPipe Hands</div>
 </div>
 
-<!-- Webcam mini preview -->
+<div id="gesture-badge">—</div>
 
+<!-- Preview -->
 <div id="preview-wrap">
   <video id="preview" playsinline autoplay muted></video>
-  <div id="face-dot"></div>
-  <div id="preview-label">position tracking</div>
+  <canvas id="hand-canvas"></canvas>
+  <div id="preview-label">hand tracking</div>
 </div>
 
-<div id="coords">
-  face x: 0.00<br>
-  face y: 0.00<br>
-  cam  x: 0.00  y: 0.00
+<div id="info">
+  palm x: <span id="px">0.00</span><br>
+  palm y: <span id="py">0.00</span><br>
+  fingers: <span id="fi">-</span><br>
+  gesture: <span id="gs">-</span>
 </div>
 
+<!-- Three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<!-- MediaPipe Hands -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  THREE.JS SCENE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════
 const canvas   = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -197,9 +217,8 @@ renderer.setClearColor(0x04040a, 1);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x04040a);
-scene.fog = new THREE.Fog(0x04040a, 8, 20);
+scene.fog = new THREE.Fog(0x04040a, 10, 22);
 
-// ── CAMERA — this is what moves with your head ──
 const cam = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
 cam.position.set(0, 0, 5);
 cam.lookAt(0, 0, 0);
@@ -208,60 +227,54 @@ cam.lookAt(0, 0, 0);
 function makeCube(size, x, y, z, color) {
   const geo   = new THREE.BoxGeometry(size, size, size);
   const group = new THREE.Group();
-
-  // fill
   group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
     color, transparent:true, opacity:0.05
   })));
-
-  // edges
   group.add(new THREE.LineSegments(
     new THREE.EdgesGeometry(geo),
     new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.9 })
   ));
-
-  // glow corner dots
   if (size > 0.15) {
     const h = size/2;
-    const verts = new Float32Array([
+    const v = new Float32Array([
       -h,-h,-h, h,-h,-h,-h, h,-h, h, h,-h,
       -h,-h, h, h,-h, h,-h, h, h, h, h, h
     ]);
     const pg = new THREE.BufferGeometry();
-    pg.setAttribute('position', new THREE.BufferAttribute(verts,3));
+    pg.setAttribute('position', new THREE.BufferAttribute(v,3));
     group.add(new THREE.Points(pg, new THREE.PointsMaterial({
       color, size:size*.07, transparent:true, opacity:.95, sizeAttenuation:true
     })));
   }
-
   group.position.set(x, y, z);
   scene.add(group);
   return group;
 }
 
-// Cubes at varying Z depths — this is what creates parallax
-const cubes = [
-  { g: makeCube(1.8,   0,    0,    2.5,  0x00c8ff), sx:.0025, sy:.004  },
-  { g: makeCube(1.0,   1.6,  0.5,  0.5,  0xa855f7), sx:.004,  sy:.003  },
-  { g: makeCube(0.65, -1.6, -0.4, -0.5,  0xff2d78), sx:.003,  sy:.006  },
-  { g: makeCube(0.38,  1.9, -1.1, -2.0,  0x00c8ff), sx:.006,  sy:.004  },
-  { g: makeCube(0.24, -1.2,  1.3, -3.5,  0xa855f7), sx:.005,  sy:.005  },
-  { g: makeCube(0.15,  0.6, -1.6, -5.0,  0xff2d78), sx:.007,  sy:.006  },
+const CUBES_DEF = [
+  { s:1.8,  x: 0,    y: 0,    z: 2.5,  c:0x00c8ff, sx:.002, sy:.003 },
+  { s:1.0,  x: 1.6,  y: 0.5,  z: 0.5,  c:0xa855f7, sx:.004, sy:.002 },
+  { s:0.65, x:-1.6,  y:-0.4,  z:-0.5,  c:0xff2d78, sx:.003, sy:.005 },
+  { s:0.38, x: 1.9,  y:-1.1,  z:-2.0,  c:0x00c8ff, sx:.005, sy:.003 },
+  { s:0.24, x:-1.2,  y: 1.3,  z:-3.5,  c:0xa855f7, sx:.004, sy:.004 },
+  { s:0.15, x: 0.6,  y:-1.6,  z:-5.0,  c:0xff2d78, sx:.006, sy:.005 },
 ];
 
-// Base Y positions for floating animation
-const baseY = cubes.map(c => c.g.position.y);
+const cubes = CUBES_DEF.map(d => ({
+  g: makeCube(d.s, d.x, d.y, d.z, d.c),
+  sx:d.sx, sy:d.sy, baseY:d.y, baseScale:1
+}));
 
-// ── Grid floor ──
+// Grid
 const grid = new THREE.GridHelper(20, 24, 0x001520, 0x001520);
 grid.position.y = -3;
 grid.material.transparent = true; grid.material.opacity = 0.6;
 scene.add(grid);
 
-// ── Particles ──
+// Particles
 const PCOUNT = 160;
 const pArr = new Float32Array(PCOUNT*3);
-for (let i=0; i<PCOUNT; i++) {
+for (let i=0;i<PCOUNT;i++){
   pArr[i*3]   = (Math.random()-.5)*14;
   pArr[i*3+1] = (Math.random()-.5)*10;
   pArr[i*3+2] = (Math.random()-.5)*10-3;
@@ -273,184 +286,298 @@ const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
 }));
 scene.add(particles);
 
-// ── Connection lines ──
-for (let i=0; i<cubes.length-1; i++) {
-  const a = cubes[i].g.position, b = cubes[i+1].g.position;
+// Connection lines
+for (let i=0;i<CUBES_DEF.length-1;i++){
+  const a=CUBES_DEF[i], b=CUBES_DEF[i+1];
   const geo = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(a.x,a.y,a.z),
     new THREE.Vector3(b.x,b.y,b.z)
   ]);
   scene.add(new THREE.Line(geo, new THREE.LineBasicMaterial({
-    color:0x00c8ff, transparent:true, opacity:.08
+    color:0x00c8ff, transparent:true, opacity:.07
   })));
 }
 
-// ═══════════════════════════════════════════════
-//  FACE POSITION TRACKING
-//  ── KEY DIFFERENCE vs before ──
-//  We track the MIDPOINT between both eyes in the
-//  video frame (0..1 coords), NOT head rotation.
-//  Moving your head right → face midpoint goes right
-//  → camera shifts right → you see left side of scene
-// ═══════════════════════════════════════════════
-const video      = document.getElementById('video');
-const previewVid = document.getElementById('preview');
-const previewWrap= document.getElementById('preview-wrap');
-const faceDot    = document.getElementById('face-dot');
-const hdot       = document.getElementById('hdot');
-const stxt       = document.getElementById('stxt');
-const overlay    = document.getElementById('overlay');
-const loading    = document.getElementById('loading');
-const coordEl    = document.getElementById('coords');
+// ═══════════════════════════════════════════
+//  HAND TRACKING
+// ═══════════════════════════════════════════
+const video       = document.getElementById('video');
+const previewVid  = document.getElementById('preview');
+const previewWrap = document.getElementById('preview-wrap');
+const handCanvas  = document.getElementById('hand-canvas');
+const hCtx        = handCanvas.getContext('2d');
+const hdot        = document.getElementById('hdot');
+const stxtEl      = document.getElementById('stxt');
+const overlay     = document.getElementById('overlay');
+const loading     = document.getElementById('loading');
+const gestureBadge= document.getElementById('gesture-badge');
+const pxEl = document.getElementById('px');
+const pyEl = document.getElementById('py');
+const fiEl = document.getElementById('fi');
+const gsEl = document.getElementById('gs');
 
-// Camera shift range (world units)
 const CAM_X = 4.5;
 const CAM_Y = 3.0;
 
-let camTargetX = 0, camTargetY = 0;
-let camCurX = 0,    camCurY = 0;
-let faceX = 0.5,    faceY = 0.5;  // raw face position in frame (0..1)
-let faceFound = false;
+let camTargetX=0, camTargetY=0, camCurX=0, camCurY=0;
+let targetFOV=55, curFOV=55;
+let handFound=false;
+let currentGesture='none';
+let explodeT=0, exploding=false;
+
+// Explode/implode state per cube
+const explodeOffsets = cubes.map(() => new THREE.Vector3(
+  (Math.random()-.5)*6,
+  (Math.random()-.5)*6,
+  (Math.random()-.5)*4
+));
+const basePositions = cubes.map(c => c.g.position.clone());
 
 function lerp(a,b,t){ return a+(b-a)*t; }
 
-async function startTracking() {
-  loading.style.display = 'block';
-  document.getElementById('start-btn').style.display = 'none';
+// ── Gesture detection ──
+// fingers: [thumb, index, middle, ring, pinky] — 1=up, 0=down
+function getFingers(lm) {
+  // Tip landmarks: 4,8,12,16,20
+  // PIP landmarks: 3,6,10,14,18
+  const tips = [4,8,12,16,20];
+  const pips = [3,6,10,14,18];
+  return tips.map((tip, i) => {
+    if (i === 0) {
+      // Thumb: compare X (hand mirrored)
+      return lm[tip].x < lm[pip=3].x ? 1 : 0;
+    }
+    return lm[tip].y < lm[pips[i]].y ? 1 : 0;
+  });
+}
 
-  const fm = new FaceMesh({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+function detectGesture(lm) {
+  const fingers = getFingers(lm);
+  const count = fingers.reduce((a,b)=>a+b,0);
+
+  // Pinch: thumb + index close, others down
+  const thumb  = lm[4];
+  const index  = lm[8];
+  const pinchDist = Math.hypot(thumb.x-index.x, thumb.y-index.y);
+
+  if (pinchDist < 0.06) return 'pinch';
+  if (count === 0)       return 'fist';
+  if (count >= 4)        return 'open';
+  return 'point';
+}
+
+// Draw hand skeleton on preview canvas
+function drawSkeleton(lm, W, H) {
+  hCtx.clearRect(0, 0, W, H);
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],      // thumb
+    [0,5],[5,6],[6,7],[7,8],      // index
+    [0,9],[9,10],[10,11],[11,12], // middle
+    [0,13],[13,14],[14,15],[15,16],// ring
+    [0,17],[17,18],[18,19],[19,20],// pinky
+    [5,9],[9,13],[13,17]          // palm
+  ];
+  hCtx.strokeStyle='rgba(0,200,255,0.7)';
+  hCtx.lineWidth=1.2;
+  connections.forEach(([a,b]) => {
+    // flip X for mirrored display
+    const ax=(1-lm[a].x)*W, ay=lm[a].y*H;
+    const bx=(1-lm[b].x)*W, by=lm[b].y*H;
+    hCtx.beginPath(); hCtx.moveTo(ax,ay); hCtx.lineTo(bx,by); hCtx.stroke();
   });
-  fm.setOptions({
-    maxNumFaces:1,
-    refineLandmarks:false,
-    minDetectionConfidence:.5,
-    minTrackingConfidence:.5
+  // Landmark dots
+  lm.forEach((p,i) => {
+    const x=(1-p.x)*W, y=p.y*H;
+    hCtx.beginPath();
+    hCtx.arc(x,y,i===0?3:2,0,Math.PI*2);
+    hCtx.fillStyle=i===0?'#a855f7':'rgba(0,200,255,0.9)';
+    hCtx.fill();
   });
-  fm.onResults(onFace);
+}
+
+let badgeTimeout;
+function showBadge(text, cls) {
+  gestureBadge.textContent = text;
+  gestureBadge.className = `show ${cls}`;
+  clearTimeout(badgeTimeout);
+  badgeTimeout = setTimeout(() => gestureBadge.className='', 1500);
+}
+
+function onHand(r) {
+  const W=handCanvas.width, H=handCanvas.height;
+  hCtx.clearRect(0,0,W,H);
+
+  if (!r.multiHandLandmarks?.length) {
+    handFound=false;
+    hdot.className='err';
+    stxtEl.innerHTML='Main <em style="color:#ff2d78">non détectée</em>';
+    camTargetX=lerp(camTargetX,0,.04);
+    camTargetY=lerp(camTargetY,0,.04);
+    return;
+  }
+
+  handFound=true;
+  const lm = r.multiHandLandmarks[0];
+
+  // Draw skeleton
+  drawSkeleton(lm, W, H);
+
+  // ── PALM POSITION = camera control ──
+  // Use wrist (0) + middle finger base (9) midpoint = palm center
+  const palmX = (lm[0].x + lm[9].x) / 2;
+  const palmY = (lm[0].y + lm[9].y) / 2;
+
+  // Flip X (mirror), center to -1..1
+  const normX = (1 - palmX - 0.5) * 2;
+  const normY = (palmY - 0.5) * 2;
+
+  camTargetX = normX * CAM_X;
+  camTargetY = -normY * CAM_Y;
+
+  // ── GESTURE DETECTION ──
+  const gesture = detectGesture(lm);
+  const fingers = getFingers(lm);
+  const fCount  = fingers.reduce((a,b)=>a+b,0);
+
+  if (gesture !== currentGesture) {
+    currentGesture = gesture;
+    if (gesture === 'pinch') {
+      showBadge('🤏 Pinch — Zoom in', 'pinch');
+      targetFOV = 28; // zoom in
+      hdot.className='on';
+    } else if (gesture === 'fist') {
+      showBadge('✊ Poing — Explosion!', 'fist');
+      hdot.className='fist';
+      triggerExplode();
+    } else if (gesture === 'open') {
+      showBadge('✋ Main ouverte', 'open');
+      targetFOV = 55;
+      hdot.className='on';
+      triggerImplode();
+    } else {
+      targetFOV = 55;
+      hdot.className='on';
+    }
+  }
+
+  stxtEl.innerHTML = `Hand <em>tracking actif</em>`;
+
+  // UI
+  pxEl.textContent = normX.toFixed(2);
+  pyEl.textContent = normY.toFixed(2);
+  fiEl.textContent = fingers.join('');
+  gsEl.textContent = gesture;
+}
+
+function triggerExplode() {
+  exploding=true; explodeT=0;
+}
+function triggerImplode() {
+  exploding=false;
+}
+
+async function startTracking() {
+  loading.style.display='block';
+  document.getElementById('start-btn').style.display='none';
+
+  const hands = new Hands({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  });
+  hands.setOptions({
+    maxNumHands:1,
+    modelComplexity:1,
+    minDetectionConfidence:.6,
+    minTrackingConfidence:.6
+  });
+  hands.onResults(onHand);
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video:{ facingMode:'user', width:{ideal:640}, height:{ideal:480} }
     });
-    video.srcObject = stream;
-    previewVid.srcObject = stream;
+    video.srcObject=stream;
+    previewVid.srcObject=stream;
 
     video.onloadedmetadata = () => {
-      video.play();
-      previewVid.play();
+      video.play(); previewVid.play();
+      // Set hand canvas size
+      handCanvas.width  = previewWrap.clientWidth;
+      handCanvas.height = previewWrap.clientHeight;
+
       overlay.classList.add('hidden');
       previewWrap.classList.add('visible');
-      hdot.className = 'on';
-      stxt.innerHTML = 'Position <em>tracking actif</em>';
+      hdot.className='on';
+      stxtEl.innerHTML='Hand <em>tracking actif</em>';
 
-      ;(async function loop() {
-        await fm.send({ image: video });
+      ;(async function loop(){
+        await hands.send({ image: video });
         requestAnimationFrame(loop);
       })();
     };
   } catch(e) {
-    hdot.className = 'err';
-    stxt.textContent = 'Caméra refusée — autorise dans Safari';
-    loading.style.display = 'none';
-    document.getElementById('start-btn').style.display = '';
+    hdot.className='err';
+    stxtEl.textContent='Caméra refusée';
+    loading.style.display='none';
+    document.getElementById('start-btn').style.display='';
   }
 }
 
-function onFace(r) {
-  if (!r.multiFaceLandmarks?.length) {
-    faceFound = false;
-    hdot.className = 'err';
-    stxt.innerHTML = 'Visage <em style="color:#ff2d78">perdu</em>';
-    // Slowly return to center
-    camTargetX = lerp(camTargetX, 0, .03);
-    camTargetY = lerp(camTargetY, 0, .03);
-    faceDot.style.opacity = '0';
-    return;
-  }
-
-  faceFound = true;
-  hdot.className = 'on';
-  stxt.innerHTML = 'Position <em>tracking actif</em>';
-
-  const lm = r.multiFaceLandmarks[0];
-
-  // ── POSITION TRACKING ──
-  // Use midpoint between LEFT eye (landmarks 33) and RIGHT eye (263)
-  // These give us the face center X/Y in the video frame (0..1)
-  const leftEye  = lm[33];
-  const rightEye = lm[263];
-
-  // Raw face position in frame
-  faceX = (leftEye.x + rightEye.x) / 2;   // 0=left, 1=right
-  faceY = (leftEye.y + rightEye.y) / 2;   // 0=top,  1=bottom
-
-  // Webcam is mirrored — flip X
-  const flippedX = 1 - faceX;
-
-  // Convert 0..1 → -1..1 centered
-  const normX = (flippedX - 0.5) * 2;
-  const normY = (faceY    - 0.5) * 2;
-
-  // Camera target = head position scaled to world units
-  camTargetX = normX * CAM_X;
-  camTargetY = -normY * CAM_Y;
-
-  // Update face dot on preview (mirrored display)
-  faceDot.style.opacity = '1';
-  faceDot.style.left = ((1 - faceX) * 100) + '%';
-  faceDot.style.top  = (faceY * 100) + '%';
-}
-
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  RENDER LOOP
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════
 const clock = new THREE.Clock();
 
-(function tick() {
+(function tick(){
   requestAnimationFrame(tick);
   const t = clock.getElapsedTime();
 
-  // Smooth camera position — the holographic shift
-  camCurX = lerp(camCurX, camTargetX, 0.13);
-  camCurY = lerp(camCurY, camTargetY, 0.13);
-
-  // ── HOLOGRAPHIC WINDOW TRICK ──
-  // Camera moves in X/Y but ALWAYS looks at origin
-  // = you're looking through a fixed window into the 3D world
+  // Camera
+  camCurX = lerp(camCurX, camTargetX, 0.11);
+  camCurY = lerp(camCurY, camTargetY, 0.11);
   cam.position.x = camCurX;
   cam.position.y = camCurY;
   cam.position.z = 5;
-  cam.lookAt(0, 0, 0);
+  cam.lookAt(0,0,0);
 
-  // Spin + float cubes
-  cubes.forEach(({ g, sx, sy }, i) => {
+  // FOV animation (pinch zoom)
+  curFOV = lerp(curFOV, targetFOV, 0.08);
+  cam.fov = curFOV;
+  cam.updateProjectionMatrix();
+
+  // Cube animation
+  cubes.forEach(({ g, sx, sy, baseY, baseScale }, i) => {
     g.rotation.x += sx;
     g.rotation.y += sy;
-    g.position.y = baseY[i] + Math.sin(t * 0.3 + i * 1.2) * 0.06;
+
+    // Explode / implode
+    if (exploding) {
+      explodeT = Math.min(explodeT + 0.04, 1);
+    } else {
+      explodeT = Math.max(explodeT - 0.03, 0);
+    }
+    const eased = explodeT * explodeT * (3 - 2 * explodeT); // smoothstep
+    g.position.x = lerp(basePositions[i].x, basePositions[i].x + explodeOffsets[i].x, eased);
+    g.position.y = lerp(baseY + Math.sin(t*.3+i*1.2)*.06, baseY + explodeOffsets[i].y, eased);
+    g.position.z = lerp(basePositions[i].z, basePositions[i].z + explodeOffsets[i].z, eased);
+
+    // Scale pulse on explode
+    const sc = 1 + eased * 0.4 * Math.sin(t*4+i);
+    g.scale.setScalar(sc);
   });
 
-  // Particles drift
-  particles.rotation.y = t * 0.015;
-
-  // Grid subtle parallax
+  particles.rotation.y = t * .015;
   grid.position.x = camCurX * -.2;
-  grid.position.z = camCurY * -.1;
 
   renderer.render(scene, cam);
-
-  coordEl.innerHTML =
-    `face x: ${(camTargetX/CAM_X).toFixed(2)}<br>` +
-    `face y: ${(-camTargetY/CAM_Y).toFixed(2)}<br>` +
-    `cam &nbsp;x: ${camCurX.toFixed(2)}  y: ${camCurY.toFixed(2)}`;
 })();
 
 window.addEventListener('resize', () => {
   cam.aspect = window.innerWidth/window.innerHeight;
   cam.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  handCanvas.width  = previewWrap.clientWidth;
+  handCanvas.height = previewWrap.clientHeight;
 });
 </script>
-
 </body>
 </html>
