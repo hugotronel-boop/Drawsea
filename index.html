@@ -1,572 +1,583 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Holographic Hand Control</title>
+<title>Hand · 3D Cube</title>
 <style>
   :root { color-scheme: dark; }
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
   html, body {
     width:100%; height:100%;
     background:#04040a !important;
-    background-color:#04040a !important;
     overflow:hidden;
     font-family:'Space Mono',monospace;
   }
-  #c {
-    display:block; position:fixed; top:0; left:0;
-    width:100%; height:100%;
-    background:#04040a;
-  }
 
-  /* HUD */
-  #hud {
-    position:fixed; top:0; left:0; right:0;
-    padding:10px 18px;
-    display:flex; align-items:center; justify-content:space-between;
-    font-size:9px; letter-spacing:.13em; text-transform:uppercase;
-    background:rgba(4,4,10,0.85);
-    border-bottom:1px solid rgba(0,200,255,0.08);
-    backdrop-filter:blur(14px); z-index:100;
-    color:rgba(255,255,255,.3);
-  }
-  #hud-l { display:flex; align-items:center; gap:8px; }
-  #hdot {
-    width:6px; height:6px; border-radius:50%;
-    background:#333; transition:background .3s, box-shadow .3s;
-  }
-  #hdot.on  { background:#00c8ff; box-shadow:0 0 8px #00c8ff; animation:pulse 1.8s infinite; }
-  #hdot.err { background:#ff2d78; box-shadow:0 0 8px #ff2d78; animation:none; }
-  #hdot.fist{ background:#a855f7; box-shadow:0 0 8px #a855f7; animation:none; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
-  #stxt em { color:#00c8ff; font-style:normal; }
+#c {
+position:fixed; top:0; left:0;
+width:100%; height:100%;
+background:#04040a;
+}
 
-  /* Gesture badge */
-  #gesture-badge {
-    position:fixed; top:48px; left:50%;
-    transform:translateX(-50%);
-    padding:6px 16px;
-    border:1px solid rgba(0,200,255,0.2);
-    border-radius:100px;
-    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
-    color:rgba(255,255,255,.4);
-    background:rgba(4,4,10,0.7);
-    backdrop-filter:blur(10px);
-    z-index:100; opacity:0;
-    transition:opacity .3s, color .3s, border-color .3s;
-    pointer-events:none;
-  }
-  #gesture-badge.show { opacity:1; }
-  #gesture-badge.pinch { color:#00c8ff; border-color:rgba(0,200,255,.5); }
-  #gesture-badge.fist  { color:#a855f7; border-color:rgba(168,85,247,.5); }
-  #gesture-badge.open  { color:#ff2d78; border-color:rgba(255,45,120,.5); }
+/* Webcam mirror feed */
+#cam-wrap {
+position:fixed; top:0; left:0;
+width:100%; height:100%;
+pointer-events:none; z-index:1;
+opacity:0; transition:opacity .5s;
+}
+#cam-wrap.visible { opacity:1; }
+#cam-video {
+position:absolute; top:0; left:0;
+width:100%; height:100%;
+object-fit:cover;
+transform:scaleX(-1);
+opacity:0.08;
+filter:brightness(.8) contrast(1.2) saturate(0);
+}
+/* Hand skeleton canvas overlay */
+#hand-canvas {
+position:absolute; top:0; left:0;
+width:100%; height:100%;
+transform:scaleX(-1);
+}
 
-  /* Webcam preview */
-  #preview-wrap {
-    position:fixed; bottom:16px; right:16px;
-    width:140px; height:105px;
-    border:1px solid rgba(0,200,255,0.2);
-    border-radius:10px; overflow:hidden;
-    z-index:100; opacity:0; transition:opacity .5s;
-    background:#000;
-  }
-  #preview-wrap.visible { opacity:1; }
-  #preview {
-    width:100%; height:100%;
-    object-fit:cover;
-    transform:scaleX(-1);
-    filter:brightness(.65) contrast(1.1);
-  }
-  /* Hand skeleton canvas overlay */
-  #hand-canvas {
-    position:absolute; top:0; left:0;
-    width:100%; height:100%;
-    pointer-events:none;
-  }
-  #preview-label {
-    position:absolute; bottom:4px; left:50%;
-    transform:translateX(-50%);
-    font-size:7px; letter-spacing:.1em;
-    color:rgba(255,255,255,.35); white-space:nowrap;
-  }
+/* HUD */
+#hud {
+position:fixed; top:0; left:0; right:0;
+padding:10px 18px;
+display:flex; align-items:center; justify-content:space-between;
+font-size:9px; letter-spacing:.13em; text-transform:uppercase;
+background:rgba(4,4,10,0.85);
+border-bottom:1px solid rgba(0,200,255,0.08);
+backdrop-filter:blur(14px); z-index:200;
+color:rgba(255,255,255,.3);
+}
+#hud-l { display:flex; align-items:center; gap:8px; }
+#hdot {
+width:6px; height:6px; border-radius:50%;
+background:#333; transition:background .3s, box-shadow .3s;
+}
+#hdot.on  { background:#00c8ff; box-shadow:0 0 8px #00c8ff; animation:pulse 1.8s infinite; }
+#hdot.err { background:#ff2d78; box-shadow:0 0 8px #ff2d78; animation:none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+#stxt em { color:#00c8ff; font-style:normal; }
 
-  /* Info bottom left */
-  #info {
-    position:fixed; bottom:16px; left:16px;
-    font-size:8px; letter-spacing:.08em;
-    color:rgba(255,255,255,.15); z-index:100;
-    line-height:2; pointer-events:none;
-  }
-  #info span { color:rgba(0,200,255,.5); }
+/* Gesture indicator */
+#gesture {
+position:fixed; bottom:20px; left:50%;
+transform:translateX(-50%);
+font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+color:rgba(255,255,255,.25);
+background:rgba(4,4,10,0.7);
+padding:7px 18px; border-radius:100px;
+border:1px solid rgba(0,200,255,0.1);
+z-index:200; pointer-events:none;
+transition:color .2s;
+}
+#gesture.active { color:#00c8ff; border-color:rgba(0,200,255,0.3); }
 
-  /* OVERLAY */
-  #overlay {
-    position:fixed; inset:0; background:#04040a;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:18px;
-    z-index:200; transition:opacity .7s;
-  }
-  #overlay.hidden { opacity:0; pointer-events:none; }
-  #overlay h1 {
-    font-size:clamp(26px,7vw,46px); font-weight:700;
-    letter-spacing:-.03em; text-align:center;
-    background:linear-gradient(130deg,#fff 20%,#00c8ff 55%,#a855f7);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text; padding:0 24px; line-height:1.15;
-  }
-  #overlay p {
-    font-size:10px; color:rgba(255,255,255,.3);
-    letter-spacing:.06em; text-align:center;
-    max-width:290px; line-height:2.1;
-  }
-  .gesture-list {
-    display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-    max-width:300px;
-  }
-  .gl {
-    padding:6px 12px;
-    border:1px solid rgba(255,255,255,.1); border-radius:100px;
-    font-size:9px; letter-spacing:.08em;
-    color:rgba(255,255,255,.35);
-  }
-  #start-btn {
-    margin-top:4px; padding:13px 36px;
-    background:transparent;
-    border:1px solid #00c8ff; border-radius:100px;
-    color:#00c8ff; font-family:'Space Mono',monospace;
-    font-size:11px; letter-spacing:.15em; text-transform:uppercase;
-    cursor:pointer; position:relative; overflow:hidden;
-    transition:color .3s, box-shadow .3s;
-  }
-  #start-btn::before {
-    content:''; position:absolute; inset:0;
-    background:#00c8ff; transform:scaleX(0); transform-origin:left;
-    transition:transform .3s;
-  }
-  #start-btn:hover::before, #start-btn:active::before { transform:scaleX(1); }
-  #start-btn:hover, #start-btn:active { color:#04040a; box-shadow:0 0 24px rgba(0,200,255,.4); }
-  #start-btn span { position:relative; z-index:1; }
-  #loading {
-    display:none; font-size:10px;
-    color:rgba(255,255,255,.25); letter-spacing:.1em;
-    animation:blink 1s infinite;
-  }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
+/* OVERLAY */
+#overlay {
+position:fixed; inset:0;
+background:#04040a;
+display:flex; flex-direction:column;
+align-items:center; justify-content:center; gap:18px;
+z-index:300; transition:opacity .7s;
+}
+#overlay.hidden { opacity:0; pointer-events:none; }
+#overlay h1 {
+font-size:clamp(26px,7vw,44px); font-weight:700;
+letter-spacing:-.03em; text-align:center;
+background:linear-gradient(130deg,#fff 20%,#00c8ff 55%,#a855f7);
+-webkit-background-clip:text; -webkit-text-fill-color:transparent;
+background-clip:text; padding:0 24px; line-height:1.15;
+}
+.instructions {
+display:flex; flex-direction:column; gap:8px;
+background:rgba(255,255,255,0.03);
+border:1px solid rgba(0,200,255,0.1);
+border-radius:12px; padding:16px 22px;
+}
+.inst-row {
+display:flex; align-items:center; gap:12px;
+font-size:10px; letter-spacing:.05em; color:rgba(255,255,255,.4);
+}
+.inst-icon { font-size:18px; width:24px; text-align:center; }
+#start-btn {
+padding:12px 34px;
+background:transparent;
+border:1px solid #00c8ff; border-radius:100px;
+color:#00c8ff;
+font-family:‘Space Mono’,monospace;
+font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+cursor:pointer; position:relative; overflow:hidden;
+transition:color .3s, box-shadow .3s;
+}
+#start-btn::before {
+content:’’; position:absolute; inset:0;
+background:#00c8ff; transform:scaleX(0); transform-origin:left;
+transition:transform .3s;
+}
+#start-btn:hover::before, #start-btn:active::before { transform:scaleX(1); }
+#start-btn:hover, #start-btn:active { color:#04040a; box-shadow:0 0 24px rgba(0,200,255,.4); }
+#start-btn span { position:relative; z-index:1; }
+#loading {
+display:none; font-size:10px; color:rgba(255,255,255,.25);
+letter-spacing:.1em; animation:blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.1} }
 
-  #video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
+#video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
 </style>
+
 </head>
 <body>
 
 <canvas id="c"></canvas>
+
+<!-- Webcam overlay for hand skeleton -->
+
+<div id="cam-wrap">
+  <video id="cam-video" playsinline autoplay muted></video>
+  <canvas id="hand-canvas"></canvas>
+</div>
+
 <video id="video" playsinline autoplay muted></video>
 
 <!-- OVERLAY -->
+
 <div id="overlay">
-  <h1>Hand<br>Hologram</h1>
-  <p>Bouge ta main devant la caméra —<br>la scène 3D suit ta paume.</p>
-  <div class="gesture-list">
-    <div class="gl">✋ déplacer</div>
-    <div class="gl">🤏 pincer → zoom</div>
-    <div class="gl">✊ poing → explosion</div>
+  <h1>Hand<br>Controller</h1>
+  <div class="instructions">
+    <div class="inst-row"><span class="inst-icon">☝️</span> 1 main — déplacer le cube</div>
+    <div class="inst-row"><span class="inst-icon">🤏</span> Pinch — attraper / lâcher</div>
+    <div class="inst-row"><span class="inst-icon">🤲</span> 2 mains — écarter pour agrandir</div>
+    <div class="inst-row"><span class="inst-icon">🔄</span> Poignet — faire tourner</div>
   </div>
   <button id="start-btn" onclick="startTracking()"><span>Activer caméra</span></button>
   <div id="loading">Chargement MediaPipe Hands…</div>
 </div>
 
 <!-- HUD -->
+
 <div id="hud">
-  <div id="hud-l">
-    <div id="hdot"></div>
-    <div id="stxt">En attente…</div>
-  </div>
+  <div id="hud-l"><div id="hdot"></div><div id="stxt">En attente…</div></div>
   <div style="color:rgba(255,255,255,.15)">Three.js · MediaPipe Hands</div>
 </div>
 
-<div id="gesture-badge">—</div>
+<div id="gesture">Montre tes mains à la caméra</div>
 
-<!-- Preview -->
-<div id="preview-wrap">
-  <video id="preview" playsinline autoplay muted></video>
-  <canvas id="hand-canvas"></canvas>
-  <div id="preview-label">hand tracking</div>
-</div>
-
-<div id="info">
-  palm x: <span id="px">0.00</span><br>
-  palm y: <span id="py">0.00</span><br>
-  fingers: <span id="fi">-</span><br>
-  gesture: <span id="gs">-</span>
-</div>
-
-<!-- Three.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<!-- MediaPipe Hands -->
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  THREE.JS SCENE
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════
 const canvas   = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x04040a, 1);
+renderer.shadowMap.enabled = true;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x04040a);
-scene.fog = new THREE.Fog(0x04040a, 10, 22);
+scene.fog = new THREE.Fog(0x04040a, 12, 25);
 
 const cam = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
-cam.position.set(0, 0, 5);
+cam.position.set(0, 4, 7);
 cam.lookAt(0, 0, 0);
 
-// ── Cube factory ──
-function makeCube(size, x, y, z, color) {
-  const geo   = new THREE.BoxGeometry(size, size, size);
-  const group = new THREE.Group();
-  group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color, transparent:true, opacity:0.05
-  })));
-  group.add(new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo),
-    new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.9 })
-  ));
-  if (size > 0.15) {
-    const h = size/2;
-    const v = new Float32Array([
-      -h,-h,-h, h,-h,-h,-h, h,-h, h, h,-h,
-      -h,-h, h, h,-h, h,-h, h, h, h, h, h
-    ]);
-    const pg = new THREE.BufferGeometry();
-    pg.setAttribute('position', new THREE.BufferAttribute(v,3));
-    group.add(new THREE.Points(pg, new THREE.PointsMaterial({
-      color, size:size*.07, transparent:true, opacity:.95, sizeAttenuation:true
-    })));
-  }
-  group.position.set(x, y, z);
-  scene.add(group);
-  return group;
-}
+// ── Lights ──
+const ambient = new THREE.AmbientLight(0x111133, 2);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0x00c8ff, 1.5);
+dirLight.position.set(5, 8, 5);
+dirLight.castShadow = true;
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0xa855f7, 0.8);
+fillLight.position.set(-5, 3, -3);
+scene.add(fillLight);
 
-const CUBES_DEF = [
-  { s:1.8,  x: 0,    y: 0,    z: 2.5,  c:0x00c8ff, sx:.002, sy:.003 },
-  { s:1.0,  x: 1.6,  y: 0.5,  z: 0.5,  c:0xa855f7, sx:.004, sy:.002 },
-  { s:0.65, x:-1.6,  y:-0.4,  z:-0.5,  c:0xff2d78, sx:.003, sy:.005 },
-  { s:0.38, x: 1.9,  y:-1.1,  z:-2.0,  c:0x00c8ff, sx:.005, sy:.003 },
-  { s:0.24, x:-1.2,  y: 1.3,  z:-3.5,  c:0xa855f7, sx:.004, sy:.004 },
-  { s:0.15, x: 0.6,  y:-1.6,  z:-5.0,  c:0xff2d78, sx:.006, sy:.005 },
-];
+// ── GROUND PLANE ──
+const groundGeo = new THREE.PlaneGeometry(12, 12);
+const groundMat = new THREE.MeshStandardMaterial({
+  color:0x04040a, roughness:1, metalness:0,
+  transparent:true, opacity:0
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -1;
+ground.receiveShadow = true;
+scene.add(ground);
 
-const cubes = CUBES_DEF.map(d => ({
-  g: makeCube(d.s, d.x, d.y, d.z, d.c),
-  sx:d.sx, sy:d.sy, baseY:d.y, baseScale:1
-}));
-
-// Grid
-const grid = new THREE.GridHelper(20, 24, 0x001520, 0x001520);
-grid.position.y = -3;
-grid.material.transparent = true; grid.material.opacity = 0.6;
+// ── GRID ──
+const grid = new THREE.GridHelper(12, 16, 0x0a1520, 0x0a1520);
+grid.position.y = -1.001;
+grid.material.transparent = true; grid.material.opacity = 0.8;
 scene.add(grid);
 
-// Particles
-const PCOUNT = 160;
-const pArr = new Float32Array(PCOUNT*3);
-for (let i=0;i<PCOUNT;i++){
-  pArr[i*3]   = (Math.random()-.5)*14;
-  pArr[i*3+1] = (Math.random()-.5)*10;
-  pArr[i*3+2] = (Math.random()-.5)*10-3;
-}
-const pGeo = new THREE.BufferGeometry();
-pGeo.setAttribute('position', new THREE.BufferAttribute(pArr,3));
-const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-  color:0x00c8ff, size:.02, transparent:true, opacity:.25, sizeAttenuation:true
+// Grid glow lines (brighter border)
+const gridBorderGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(12,12));
+const gridBorder = new THREE.LineSegments(gridBorderGeo,
+  new THREE.LineBasicMaterial({ color:0x00c8ff, transparent:true, opacity:.15 })
+);
+gridBorder.rotation.x = -Math.PI/2;
+gridBorder.position.y = -0.999;
+scene.add(gridBorder);
+
+// ── THE CUBE ──
+const cubeSize = 1;
+const cubeGeo  = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+
+// Solid faces with material
+const cubeMat  = new THREE.MeshStandardMaterial({
+  color:0x001a2e,
+  roughness:.3, metalness:.8,
+  transparent:true, opacity:.85,
+  side:THREE.FrontSide
+});
+const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+cubeMesh.castShadow = true;
+
+// Wireframe edges
+const edgesGeo  = new THREE.EdgesGeometry(cubeGeo);
+const edgesMat  = new THREE.LineBasicMaterial({ color:0x00c8ff, transparent:true, opacity:.9 });
+const cubeEdges = new THREE.LineSegments(edgesGeo, edgesMat);
+
+// Corner dots
+const dotVerts = new Float32Array([
+  -.5,-.5,-.5,  .5,-.5,-.5,  -.5, .5,-.5,  .5, .5,-.5,
+  -.5,-.5, .5,  .5,-.5, .5,  -.5, .5, .5,  .5, .5, .5
+]);
+const dotGeo = new THREE.BufferGeometry();
+dotGeo.setAttribute('position', new THREE.BufferAttribute(dotVerts,3));
+const dots = new THREE.Points(dotGeo, new THREE.PointsMaterial({
+  color:0x00c8ff, size:.06, transparent:true, opacity:1, sizeAttenuation:true
 }));
-scene.add(particles);
 
-// Connection lines
-for (let i=0;i<CUBES_DEF.length-1;i++){
-  const a=CUBES_DEF[i], b=CUBES_DEF[i+1];
-  const geo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(a.x,a.y,a.z),
-    new THREE.Vector3(b.x,b.y,b.z)
-  ]);
-  scene.add(new THREE.Line(geo, new THREE.LineBasicMaterial({
-    color:0x00c8ff, transparent:true, opacity:.07
-  })));
-}
+// Group everything
+const cubeGroup = new THREE.Group();
+cubeGroup.add(cubeMesh);
+cubeGroup.add(cubeEdges);
+cubeGroup.add(dots);
+cubeGroup.position.set(0, 0, 0);  // on the ground plane
+scene.add(cubeGroup);
 
-// ═══════════════════════════════════════════
-//  HAND TRACKING
-// ═══════════════════════════════════════════
-const video       = document.getElementById('video');
-const previewVid  = document.getElementById('preview');
-const previewWrap = document.getElementById('preview-wrap');
-const handCanvas  = document.getElementById('hand-canvas');
-const hCtx        = handCanvas.getContext('2d');
-const hdot        = document.getElementById('hdot');
-const stxtEl      = document.getElementById('stxt');
-const overlay     = document.getElementById('overlay');
-const loading     = document.getElementById('loading');
-const gestureBadge= document.getElementById('gesture-badge');
-const pxEl = document.getElementById('px');
-const pyEl = document.getElementById('py');
-const fiEl = document.getElementById('fi');
-const gsEl = document.getElementById('gs');
+// Shadow circle under cube
+const shadowGeo = new THREE.CircleGeometry(.7, 32);
+const shadowMat = new THREE.MeshBasicMaterial({
+  color:0x00c8ff, transparent:true, opacity:.08
+});
+const shadowCircle = new THREE.Mesh(shadowGeo, shadowMat);
+shadowCircle.rotation.x = -Math.PI/2;
+shadowCircle.position.y = -0.998;
+scene.add(shadowCircle);
 
-const CAM_X = 4.5;
-const CAM_Y = 3.0;
+// Grab glow (shown when grabbed)
+const glowMat = new THREE.MeshBasicMaterial({
+  color:0x00c8ff, transparent:true, opacity:0, side:THREE.BackSide
+});
+const glowMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(cubeSize*1.12, cubeSize*1.12, cubeSize*1.12),
+  glowMat
+);
+cubeGroup.add(glowMesh);
 
-let camTargetX=0, camTargetY=0, camCurX=0, camCurY=0;
-let targetFOV=55, curFOV=55;
-let handFound=false;
-let currentGesture='none';
-let explodeT=0, exploding=false;
+// ═══════════════════════════════════════════════
+//  HAND TRACKING STATE
+// ═══════════════════════════════════════════════
+const video      = document.getElementById('video');
+const camVideo   = document.getElementById('cam-video');
+const camWrap    = document.getElementById('cam-wrap');
+const handCanvas = document.getElementById('hand-canvas');
+const hCtx       = handCanvas.getContext('2d');
+const hdot       = document.getElementById('hdot');
+const stxt       = document.getElementById('stxt');
+const overlay    = document.getElementById('overlay');
+const loading    = document.getElementById('loading');
+const gestureEl  = document.getElementById('gesture');
 
-// Explode/implode state per cube
-const explodeOffsets = cubes.map(() => new THREE.Vector3(
-  (Math.random()-.5)*6,
-  (Math.random()-.5)*6,
-  (Math.random()-.5)*4
-));
-const basePositions = cubes.map(c => c.g.position.clone());
+// Cube state
+let cubePos    = new THREE.Vector3(0, 0, 0);
+let cubeScale  = 1;
+let cubeRotY   = 0;
+let grabbed    = false;
+
+// Hand data
+let hand1 = null, hand2 = null;
+let prevPinchDist = null;
+let grabOffset = new THREE.Vector3();
 
 function lerp(a,b,t){ return a+(b-a)*t; }
 
-// ── Gesture detection ──
-// fingers: [thumb, index, middle, ring, pinky] — 1=up, 0=down
-function getFingers(lm) {
-  // Tip landmarks: 4,8,12,16,20
-  // PIP landmarks: 3,6,10,14,18
-  const tips = [4,8,12,16,20];
-  const pips = [3,6,10,14,18];
-  return tips.map((tip, i) => {
-    if (i === 0) {
-      // Thumb: compare X (hand mirrored)
-      return lm[tip].x < lm[pip=3].x ? 1 : 0;
-    }
-    return lm[tip].y < lm[pips[i]].y ? 1 : 0;
-  });
+// ── Convert MediaPipe landmark (0..1) → Three.js world coords ──
+// x: 0=left, 1=right (mirrored) → -5..5
+// y: 0=top,  1=bottom           → 4..-2 (inverted, clamped to plane)
+function lmToWorld(lm) {
+  const wx = -(lm.x - 0.5) * 10;   // mirrored
+  const wy = -(lm.y - 0.5) * 6;    // vertical
+  return new THREE.Vector3(wx, wy, 0);
 }
 
-function detectGesture(lm) {
-  const fingers = getFingers(lm);
-  const count = fingers.reduce((a,b)=>a+b,0);
-
-  // Pinch: thumb + index close, others down
-  const thumb  = lm[4];
-  const index  = lm[8];
-  const pinchDist = Math.hypot(thumb.x-index.x, thumb.y-index.y);
-
-  if (pinchDist < 0.06) return 'pinch';
-  if (count === 0)       return 'fist';
-  if (count >= 4)        return 'open';
-  return 'point';
+// Project hand to ground plane (Y = cubePos.y)
+function lmToGround(lm) {
+  const wx = -(lm.x - 0.5) * 8;
+  const wz =  (lm.y - 0.5) * 6;
+  return new THREE.Vector3(wx, 0, wz);
 }
 
-// Draw hand skeleton on preview canvas
-function drawSkeleton(lm, W, H) {
-  hCtx.clearRect(0, 0, W, H);
-  const connections = [
-    [0,1],[1,2],[2,3],[3,4],      // thumb
-    [0,5],[5,6],[6,7],[7,8],      // index
-    [0,9],[9,10],[10,11],[11,12], // middle
-    [0,13],[13,14],[14,15],[15,16],// ring
-    [0,17],[17,18],[18,19],[19,20],// pinky
-    [5,9],[9,13],[13,17]          // palm
-  ];
-  hCtx.strokeStyle='rgba(0,200,255,0.7)';
-  hCtx.lineWidth=1.2;
-  connections.forEach(([a,b]) => {
-    // flip X for mirrored display
-    const ax=(1-lm[a].x)*W, ay=lm[a].y*H;
-    const bx=(1-lm[b].x)*W, by=lm[b].y*H;
-    hCtx.beginPath(); hCtx.moveTo(ax,ay); hCtx.lineTo(bx,by); hCtx.stroke();
-  });
-  // Landmark dots
-  lm.forEach((p,i) => {
-    const x=(1-p.x)*W, y=p.y*H;
+// Pinch distance between thumb (4) and index (8)
+function pinchDist(lms) {
+  const t = lms[4], i = lms[8];
+  return Math.hypot(t.x-i.x, t.y-i.y);
+}
+
+// Is hand pinching?
+function isPinching(lms) {
+  return pinchDist(lms) < 0.06;
+}
+
+// Wrist rotation (angle of wrist→middle_mcp)
+function wristAngle(lms) {
+  const w = lms[0], m = lms[9];
+  return Math.atan2(m.y - w.y, m.x - w.x);
+}
+
+// ── Draw hand skeleton on canvas ──
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],[0,17]
+];
+
+function drawHand(lms, color, pinching) {
+  const W = handCanvas.width, H = handCanvas.height;
+
+  hCtx.strokeStyle = color;
+  hCtx.lineWidth = 1.5;
+  hCtx.globalAlpha = 0.6;
+
+  HAND_CONNECTIONS.forEach(([a,b]) => {
     hCtx.beginPath();
-    hCtx.arc(x,y,i===0?3:2,0,Math.PI*2);
-    hCtx.fillStyle=i===0?'#a855f7':'rgba(0,200,255,0.9)';
+    hCtx.moveTo(lms[a].x * W, lms[a].y * H);
+    hCtx.lineTo(lms[b].x * W, lms[b].y * H);
+    hCtx.stroke();
+  });
+
+  // Landmark dots
+  lms.forEach((lm, i) => {
+    const isThumb = i === 4, isIndex = i === 8;
+    const r = (isThumb || isIndex) ? 6 : 3;
+    hCtx.globalAlpha = (isThumb || isIndex) ? 1 : 0.5;
+    hCtx.fillStyle = pinching && isThumb && isIndex ? '#ff2d78' : color;
+    hCtx.beginPath();
+    hCtx.arc(lm.x * W, lm.y * H, r, 0, Math.PI*2);
     hCtx.fill();
   });
+
+  // Pinch line
+  if (pinching) {
+    hCtx.globalAlpha = 0.8;
+    hCtx.strokeStyle = '#ff2d78';
+    hCtx.lineWidth = 2;
+    hCtx.setLineDash([3,3]);
+    hCtx.beginPath();
+    hCtx.moveTo(lms[4].x * W, lms[4].y * H);
+    hCtx.lineTo(lms[8].x * W, lms[8].y * H);
+    hCtx.stroke();
+    hCtx.setLineDash([]);
+  }
+
+  hCtx.globalAlpha = 1;
 }
 
-let badgeTimeout;
-function showBadge(text, cls) {
-  gestureBadge.textContent = text;
-  gestureBadge.className = `show ${cls}`;
-  clearTimeout(badgeTimeout);
-  badgeTimeout = setTimeout(() => gestureBadge.className='', 1500);
-}
+// ─────────────────────────────────────────────
+//  MEDIAPIPE RESULTS
+// ─────────────────────────────────────────────
+function onHands(results) {
+  // Resize hand canvas to match display
+  handCanvas.width  = window.innerWidth;
+  handCanvas.height = window.innerHeight;
+  hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
 
-function onHand(r) {
-  const W=handCanvas.width, H=handCanvas.height;
-  hCtx.clearRect(0,0,W,H);
+  hand1 = null; hand2 = null;
 
-  if (!r.multiHandLandmarks?.length) {
-    handFound=false;
-    hdot.className='err';
-    stxtEl.innerHTML='Main <em style="color:#ff2d78">non détectée</em>';
-    camTargetX=lerp(camTargetX,0,.04);
-    camTargetY=lerp(camTargetY,0,.04);
+  if (!results.multiHandLandmarks?.length) {
+    hdot.className = 'err';
+    stxt.innerHTML = 'Mains <em style="color:#ff2d78">non détectées</em>';
+    gestureEl.className = '';
+    gestureEl.textContent = 'Montre tes mains à la caméra';
+    grabbed = false;
+    glowMat.opacity = 0;
     return;
   }
 
-  handFound=true;
-  const lm = r.multiHandLandmarks[0];
+  hdot.className = 'on';
 
-  // Draw skeleton
-  drawSkeleton(lm, W, H);
+  const lms0 = results.multiHandLandmarks[0];
+  const lms1 = results.multiHandLandmarks[1];
+  hand1 = lms0;
+  hand2 = lms1 || null;
 
-  // ── PALM POSITION = camera control ──
-  // Use wrist (0) + middle finger base (9) midpoint = palm center
-  const palmX = (lm[0].x + lm[9].x) / 2;
-  const palmY = (lm[0].y + lm[9].y) / 2;
+  const pinch1 = isPinching(lms0);
+  const pinch2 = hand2 ? isPinching(hand2) : false;
 
-  // Flip X (mirror), center to -1..1
-  const normX = (1 - palmX - 0.5) * 2;
-  const normY = (palmY - 0.5) * 2;
+  // Draw skeletons
+  drawHand(lms0, '#00c8ff', pinch1);
+  if (hand2) drawHand(hand2, '#a855f7', pinch2);
 
-  camTargetX = normX * CAM_X;
-  camTargetY = -normY * CAM_Y;
+  // ── TWO HANDS: Scale ──
+  if (hand1 && hand2) {
+    const p1 = lms0[9]; // palm center hand1
+    const p2 = hand2[9]; // palm center hand2
+    const dist = Math.hypot(p1.x-p2.x, p1.y-p2.y);
 
-  // ── GESTURE DETECTION ──
-  const gesture = detectGesture(lm);
-  const fingers = getFingers(lm);
-  const fCount  = fingers.reduce((a,b)=>a+b,0);
+    if (prevPinchDist !== null) {
+      const delta = dist - prevPinchDist;
+      cubeScale = Math.max(0.3, Math.min(4, cubeScale + delta * 6));
+    }
+    prevPinchDist = dist;
 
-  if (gesture !== currentGesture) {
-    currentGesture = gesture;
-    if (gesture === 'pinch') {
-      showBadge('🤏 Pinch — Zoom in', 'pinch');
-      targetFOV = 28; // zoom in
-      hdot.className='on';
-    } else if (gesture === 'fist') {
-      showBadge('✊ Poing — Explosion!', 'fist');
-      hdot.className='fist';
-      triggerExplode();
-    } else if (gesture === 'open') {
-      showBadge('✋ Main ouverte', 'open');
-      targetFOV = 55;
-      hdot.className='on';
-      triggerImplode();
+    stxt.innerHTML = '<em>2 mains</em> — scale';
+    gestureEl.className = 'active';
+    gestureEl.textContent = `↔ Écarte les mains  ·  scale: ${cubeScale.toFixed(2)}x`;
+
+    // Rotate with wrist angle difference
+    const angle1 = wristAngle(lms0);
+    cubeRotY += (angle1 * 0.01);
+
+  } else {
+    prevPinchDist = null;
+
+    // ── ONE HAND: Move ──
+    const palm = lmToGround(lms0[9]);
+
+    if (pinch1) {
+      // GRABBED
+      if (!grabbed) {
+        grabbed = true;
+        grabOffset.copy(cubePos).sub(palm);
+      }
+      cubePos.x = lerp(cubePos.x, palm.x + grabOffset.x, 0.25);
+      cubePos.z = lerp(cubePos.z, palm.z + grabOffset.z, 0.25);
+
+      // Auto-rotate when grabbed based on wrist
+      cubeRotY = lerp(cubeRotY, wristAngle(lms0) * 2, 0.08);
+
+      stxt.innerHTML = '<em>Pincé</em> — déplacement';
+      gestureEl.className = 'active';
+      gestureEl.textContent = '🤏 Cube attrapé — déplace ta main';
+      glowMat.opacity = lerp(glowMat.opacity, 0.15, 0.15);
+      edgesMat.color.setHex(0xff2d78);
     } else {
-      targetFOV = 55;
-      hdot.className='on';
+      // Open hand — release
+      grabbed = false;
+      grabOffset.set(0,0,0);
+      glowMat.opacity = lerp(glowMat.opacity, 0, 0.1);
+      edgesMat.color.setHex(0x00c8ff);
+
+      stxt.innerHTML = '1 main — <em>pince pour attraper</em>';
+      gestureEl.className = '';
+      gestureEl.textContent = '☝ Pince (pouce + index) pour attraper';
     }
   }
 
-  stxtEl.innerHTML = `Hand <em>tracking actif</em>`;
-
-  // UI
-  pxEl.textContent = normX.toFixed(2);
-  pyEl.textContent = normY.toFixed(2);
-  fiEl.textContent = fingers.join('');
-  gsEl.textContent = gesture;
+  // Clamp to ground surface
+  cubePos.y = 0;
+  cubePos.x = Math.max(-5, Math.min(5, cubePos.x));
+  cubePos.z = Math.max(-4, Math.min(4, cubePos.z));
 }
 
-function triggerExplode() {
-  exploding=true; explodeT=0;
-}
-function triggerImplode() {
-  exploding=false;
-}
-
+// ─────────────────────────────────────────────
+//  START MEDIAPIPE HANDS
+// ─────────────────────────────────────────────
 async function startTracking() {
-  loading.style.display='block';
-  document.getElementById('start-btn').style.display='none';
+  loading.style.display = 'block';
+  document.getElementById('start-btn').style.display = 'none';
 
   const hands = new Hands({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
   });
   hands.setOptions({
-    maxNumHands:1,
-    modelComplexity:1,
-    minDetectionConfidence:.6,
-    minTrackingConfidence:.6
+    maxNumHands: 2,
+    modelComplexity: 1,
+    minDetectionConfidence: .7,
+    minTrackingConfidence: .6
   });
-  hands.onResults(onHand);
+  hands.onResults(onHands);
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video:{ facingMode:'user', width:{ideal:640}, height:{ideal:480} }
     });
-    video.srcObject=stream;
-    previewVid.srcObject=stream;
+    video.srcObject = stream;
+    camVideo.srcObject = stream;
 
     video.onloadedmetadata = () => {
-      video.play(); previewVid.play();
-      // Set hand canvas size
-      handCanvas.width  = previewWrap.clientWidth;
-      handCanvas.height = previewWrap.clientHeight;
-
+      video.play();
+      camVideo.play();
       overlay.classList.add('hidden');
-      previewWrap.classList.add('visible');
-      hdot.className='on';
-      stxtEl.innerHTML='Hand <em>tracking actif</em>';
+      camWrap.classList.add('visible');
+      hdot.className = 'on';
+      stxt.innerHTML = 'Hand <em>tracking actif</em>';
 
-      ;(async function loop(){
+      ;(async function loop() {
         await hands.send({ image: video });
         requestAnimationFrame(loop);
       })();
     };
   } catch(e) {
-    hdot.className='err';
-    stxtEl.textContent='Caméra refusée';
-    loading.style.display='none';
-    document.getElementById('start-btn').style.display='';
+    hdot.className = 'err';
+    stxt.textContent = 'Caméra refusée';
+    loading.style.display = 'none';
+    document.getElementById('start-btn').style.display = '';
   }
 }
 
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  RENDER LOOP
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════
 const clock = new THREE.Clock();
+let smoothScale = 1;
+let smoothRotY  = 0;
 
-(function tick(){
+(function tick() {
   requestAnimationFrame(tick);
   const t = clock.getElapsedTime();
 
-  // Camera
-  camCurX = lerp(camCurX, camTargetX, 0.11);
-  camCurY = lerp(camCurY, camTargetY, 0.11);
-  cam.position.x = camCurX;
-  cam.position.y = camCurY;
-  cam.position.z = 5;
-  cam.lookAt(0,0,0);
+  // Smooth cube transform
+  cubeGroup.position.x = lerp(cubeGroup.position.x, cubePos.x, 0.18);
+  cubeGroup.position.z = lerp(cubeGroup.position.z, cubePos.z, 0.18);
+  cubeGroup.position.y = cubeScale / 2 - 1; // sit on ground
 
-  // FOV animation (pinch zoom)
-  curFOV = lerp(curFOV, targetFOV, 0.08);
-  cam.fov = curFOV;
-  cam.updateProjectionMatrix();
+  smoothScale = lerp(smoothScale, cubeScale, 0.12);
+  cubeGroup.scale.setScalar(smoothScale);
 
-  // Cube animation
-  cubes.forEach(({ g, sx, sy, baseY, baseScale }, i) => {
-    g.rotation.x += sx;
-    g.rotation.y += sy;
+  smoothRotY = lerp(smoothRotY, cubeRotY, 0.08);
+  cubeGroup.rotation.y = smoothRotY;
 
-    // Explode / implode
-    if (exploding) {
-      explodeT = Math.min(explodeT + 0.04, 1);
-    } else {
-      explodeT = Math.max(explodeT - 0.03, 0);
-    }
-    const eased = explodeT * explodeT * (3 - 2 * explodeT); // smoothstep
-    g.position.x = lerp(basePositions[i].x, basePositions[i].x + explodeOffsets[i].x, eased);
-    g.position.y = lerp(baseY + Math.sin(t*.3+i*1.2)*.06, baseY + explodeOffsets[i].y, eased);
-    g.position.z = lerp(basePositions[i].z, basePositions[i].z + explodeOffsets[i].z, eased);
+  // Gentle idle float when not grabbed
+  if (!grabbed) {
+    cubeGroup.rotation.x = Math.sin(t * 0.4) * 0.06;
+    cubeGroup.position.y += Math.sin(t * 0.8) * 0.004;
+  }
 
-    // Scale pulse on explode
-    const sc = 1 + eased * 0.4 * Math.sin(t*4+i);
-    g.scale.setScalar(sc);
-  });
+  // Shadow follows cube
+  shadowCircle.position.x = cubeGroup.position.x;
+  shadowCircle.position.z = cubeGroup.position.z;
+  shadowCircle.scale.setScalar(smoothScale);
+  shadowMat.opacity = 0.05 + smoothScale * 0.03;
 
-  particles.rotation.y = t * .015;
-  grid.position.x = camCurX * -.2;
+  // Grid glow pulse
+  grid.material.opacity = 0.5 + Math.sin(t * 0.5) * 0.15;
 
   renderer.render(scene, cam);
 })();
@@ -575,9 +586,10 @@ window.addEventListener('resize', () => {
   cam.aspect = window.innerWidth/window.innerHeight;
   cam.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  handCanvas.width  = previewWrap.clientWidth;
-  handCanvas.height = previewWrap.clientHeight;
+  handCanvas.width  = window.innerWidth;
+  handCanvas.height = window.innerHeight;
 });
 </script>
+
 </body>
 </html>
