@@ -4,29 +4,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Hand · 3D Cube</title>
+<title>Block Builder · Hand Control</title>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
   html, body {
     width:100%; height:100%;
-    background:#04040a !important;
+    background:#f5f4f0 !important;
     overflow:hidden;
-    font-family:'Space Mono',monospace;
+    font-family: 'DM Mono', 'Courier New', monospace;
   }
 
 #c {
 position:fixed; top:0; left:0;
 width:100%; height:100%;
-background:#04040a;
 }
 
-/* Webcam mirror feed */
+/* Webcam + hand skeleton overlay */
 #cam-wrap {
 position:fixed; top:0; left:0;
 width:100%; height:100%;
 pointer-events:none; z-index:1;
-opacity:0; transition:opacity .5s;
+opacity:0; transition:opacity .6s;
 }
 #cam-wrap.visible { opacity:1; }
 #cam-video {
@@ -34,323 +33,463 @@ position:absolute; top:0; left:0;
 width:100%; height:100%;
 object-fit:cover;
 transform:scaleX(-1);
-opacity:0.08;
-filter:brightness(.8) contrast(1.2) saturate(0);
+opacity:0.06;
+filter:grayscale(1) contrast(1.3);
 }
-/* Hand skeleton canvas overlay */
 #hand-canvas {
 position:absolute; top:0; left:0;
 width:100%; height:100%;
 transform:scaleX(-1);
 }
 
-/* HUD */
-#hud {
+/* TOP BAR */
+#topbar {
 position:fixed; top:0; left:0; right:0;
-padding:10px 18px;
+height:52px;
 display:flex; align-items:center; justify-content:space-between;
-font-size:9px; letter-spacing:.13em; text-transform:uppercase;
-background:rgba(4,4,10,0.85);
-border-bottom:1px solid rgba(0,200,255,0.08);
-backdrop-filter:blur(14px); z-index:200;
-color:rgba(255,255,255,.3);
+padding:0 20px;
+background:rgba(245,244,240,0.92);
+border-bottom:1px solid rgba(0,0,0,0.08);
+backdrop-filter:blur(16px);
+z-index:100;
 }
-#hud-l { display:flex; align-items:center; gap:8px; }
-#hdot {
-width:6px; height:6px; border-radius:50%;
-background:#333; transition:background .3s, box-shadow .3s;
+#topbar-left { display:flex; align-items:center; gap:10px; }
+#status-dot {
+width:7px; height:7px; border-radius:50%;
+background:#ccc; transition:background .3s, box-shadow .3s;
+flex-shrink:0;
 }
-#hdot.on  { background:#00c8ff; box-shadow:0 0 8px #00c8ff; animation:pulse 1.8s infinite; }
-#hdot.err { background:#ff2d78; box-shadow:0 0 8px #ff2d78; animation:none; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
-#stxt em { color:#00c8ff; font-style:normal; }
+#status-dot.on  { background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.5); animation:blink 2s infinite; }
+#status-dot.err { background:#ef4444; animation:none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+#status-text {
+font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+color:#999;
+}
+#status-text b { color:#222; font-weight:500; }
 
-/* Gesture indicator */
-#gesture {
+#block-count {
+font-size:11px; letter-spacing:.06em;
+color:#bbb; text-transform:uppercase;
+}
+#block-count b { color:#222; }
+
+/* COLOR PALETTE */
+#palette {
+position:fixed; right:16px; top:50%;
+transform:translateY(-50%);
+display:flex; flex-direction:column; gap:10px;
+z-index:100;
+}
+.pal-item {
+width:32px; height:32px;
+border-radius:8px;
+border:2px solid transparent;
+cursor:pointer;
+transition:transform .15s, border-color .15s, box-shadow .15s;
+box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.pal-item:hover { transform:scale(1.15); }
+.pal-item.active {
+border-color:#222;
+transform:scale(1.15);
+box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
+
+/* GESTURE HINT */
+#gesture-bar {
 position:fixed; bottom:20px; left:50%;
 transform:translateX(-50%);
-font-size:10px; letter-spacing:.12em; text-transform:uppercase;
-color:rgba(255,255,255,.25);
-background:rgba(4,4,10,0.7);
-padding:7px 18px; border-radius:100px;
-border:1px solid rgba(0,200,255,0.1);
-z-index:200; pointer-events:none;
-transition:color .2s;
+display:flex; align-items:center; gap:8px;
+padding:9px 20px;
+background:rgba(245,244,240,0.95);
+border:1px solid rgba(0,0,0,.1);
+border-radius:100px;
+font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+color:#888;
+box-shadow:0 4px 20px rgba(0,0,0,.08);
+z-index:100; pointer-events:none;
+transition:color .2s, border-color .2s;
+white-space:nowrap;
 }
-#gesture.active { color:#00c8ff; border-color:rgba(0,200,255,0.3); }
+#gesture-bar.active { color:#222; border-color:rgba(0,0,0,.25); }
+#gesture-icon { font-size:14px; }
+
+/* BLOCK COUNT badge */
+#blocks-badge {
+position:fixed; left:16px; bottom:20px;
+padding:8px 16px;
+background:rgba(245,244,240,0.95);
+border:1px solid rgba(0,0,0,.1);
+border-radius:100px;
+font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+color:#888;
+box-shadow:0 4px 20px rgba(0,0,0,.08);
+z-index:100;
+}
+
+/* CLEAR button */
+#clear-btn {
+position:fixed; right:64px; bottom:20px;
+padding:8px 16px;
+background:rgba(245,244,240,0.95);
+border:1px solid rgba(0,0,0,.1);
+border-radius:100px;
+font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+color:#888; cursor:pointer;
+box-shadow:0 4px 20px rgba(0,0,0,.08);
+z-index:100;
+transition:background .2s, color .2s;
+}
+#clear-btn:hover { background:#fff; color:#222; }
 
 /* OVERLAY */
 #overlay {
 position:fixed; inset:0;
-background:#04040a;
+background:#f5f4f0;
 display:flex; flex-direction:column;
-align-items:center; justify-content:center; gap:18px;
-z-index:300; transition:opacity .7s;
+align-items:center; justify-content:center; gap:24px;
+z-index:300; transition:opacity .6s;
 }
 #overlay.hidden { opacity:0; pointer-events:none; }
+
 #overlay h1 {
-font-size:clamp(26px,7vw,44px); font-weight:700;
-letter-spacing:-.03em; text-align:center;
-background:linear-gradient(130deg,#fff 20%,#00c8ff 55%,#a855f7);
+font-size:clamp(32px,8vw,52px);
+font-weight:400; letter-spacing:-.04em;
+color:#111; text-align:center;
+line-height:1.05;
+}
+#overlay h1 em {
+font-style:normal;
+background:linear-gradient(135deg, #f97316, #ec4899);
 -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-background-clip:text; padding:0 24px; line-height:1.15;
+background-clip:text;
 }
-.instructions {
-display:flex; flex-direction:column; gap:8px;
-background:rgba(255,255,255,0.03);
-border:1px solid rgba(0,200,255,0.1);
-border-radius:12px; padding:16px 22px;
+
+.inst-grid {
+display:grid; grid-template-columns:1fr 1fr;
+gap:10px; max-width:340px;
 }
-.inst-row {
-display:flex; align-items:center; gap:12px;
-font-size:10px; letter-spacing:.05em; color:rgba(255,255,255,.4);
+.inst-card {
+background:#fff;
+border:1px solid rgba(0,0,0,.07);
+border-radius:12px;
+padding:14px 16px;
+display:flex; flex-direction:column; gap:6px;
 }
-.inst-icon { font-size:18px; width:24px; text-align:center; }
+.inst-card .icon { font-size:20px; }
+.inst-card .label {
+font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+color:#aaa; line-height:1.5;
+}
+.inst-card .action {
+font-size:12px; color:#333; font-weight:500;
+}
+
 #start-btn {
-padding:12px 34px;
-background:transparent;
-border:1px solid #00c8ff; border-radius:100px;
-color:#00c8ff;
-font-family:‘Space Mono’,monospace;
-font-size:11px; letter-spacing:.15em; text-transform:uppercase;
-cursor:pointer; position:relative; overflow:hidden;
-transition:color .3s, box-shadow .3s;
+padding:14px 40px;
+background:#111; border:none; border-radius:100px;
+color:#fff; font-family:inherit;
+font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+cursor:pointer;
+transition:background .2s, transform .15s, box-shadow .2s;
+box-shadow:0 4px 20px rgba(0,0,0,.2);
 }
-#start-btn::before {
-content:’’; position:absolute; inset:0;
-background:#00c8ff; transform:scaleX(0); transform-origin:left;
-transition:transform .3s;
-}
-#start-btn:hover::before, #start-btn:active::before { transform:scaleX(1); }
-#start-btn:hover, #start-btn:active { color:#04040a; box-shadow:0 0 24px rgba(0,200,255,.4); }
-#start-btn span { position:relative; z-index:1; }
+#start-btn:hover { background:#333; transform:translateY(-1px); box-shadow:0 8px 28px rgba(0,0,0,.2); }
+#start-btn:active { transform:translateY(0); }
+
 #loading {
-display:none; font-size:10px; color:rgba(255,255,255,.25);
-letter-spacing:.1em; animation:blink 1s infinite;
+display:none; font-size:11px; color:#aaa;
+letter-spacing:.1em; text-transform:uppercase;
+animation:blink 1s infinite;
 }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.1} }
 
 #video { position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; }
 </style>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <canvas id="c"></canvas>
 
-<!-- Webcam overlay for hand skeleton -->
-
 <div id="cam-wrap">
   <video id="cam-video" playsinline autoplay muted></video>
   <canvas id="hand-canvas"></canvas>
 </div>
-
 <video id="video" playsinline autoplay muted></video>
 
 <!-- OVERLAY -->
 
 <div id="overlay">
-  <h1>Hand<br>Controller</h1>
-  <div class="instructions">
-    <div class="inst-row"><span class="inst-icon">☝️</span> 1 main — déplacer le cube</div>
-    <div class="inst-row"><span class="inst-icon">🤏</span> Pinch — attraper / lâcher</div>
-    <div class="inst-row"><span class="inst-icon">🤲</span> 2 mains — écarter pour agrandir</div>
-    <div class="inst-row"><span class="inst-icon">🔄</span> Poignet — faire tourner</div>
+  <h1>Block<br><em>Builder</em></h1>
+  <div class="inst-grid">
+    <div class="inst-card">
+      <div class="icon">🤏</div>
+      <div class="action">Pinch + déplace</div>
+      <div class="label">Bouger un bloc existant</div>
+    </div>
+    <div class="inst-card">
+      <div class="icon">✌️</div>
+      <div class="action">2 doigts levés</div>
+      <div class="label">Ajouter un nouveau bloc</div>
+    </div>
+    <div class="inst-card">
+      <div class="icon">🤲</div>
+      <div class="action">2 mains</div>
+      <div class="label">Redimensionner le bloc</div>
+    </div>
+    <div class="inst-card">
+      <div class="icon">👈</div>
+      <div class="action">Palette → droite</div>
+      <div class="label">Changer la couleur</div>
+    </div>
   </div>
-  <button id="start-btn" onclick="startTracking()"><span>Activer caméra</span></button>
-  <div id="loading">Chargement MediaPipe Hands…</div>
+  <button id="start-btn" onclick="startTracking()">Activer la caméra</button>
+  <div id="loading">Chargement MediaPipe…</div>
 </div>
 
-<!-- HUD -->
+<!-- TOP BAR -->
 
-<div id="hud">
-  <div id="hud-l"><div id="hdot"></div><div id="stxt">En attente…</div></div>
-  <div style="color:rgba(255,255,255,.15)">Three.js · MediaPipe Hands</div>
+<div id="topbar">
+  <div id="topbar-left">
+    <div id="status-dot"></div>
+    <div id="status-text">En attente</div>
+  </div>
+  <div id="block-count">Blocs : <b id="bcount">0</b></div>
 </div>
 
-<div id="gesture">Montre tes mains à la caméra</div>
+<!-- COLOR PALETTE -->
+
+<div id="palette"></div>
+
+<!-- BOTTOM UI -->
+
+<div id="blocks-badge">✦ <span id="gesture-label">Prêt</span></div>
+<button id="clear-btn" onclick="clearAll()">Effacer</button>
+<div id="gesture-bar"><span id="gesture-icon">☝</span><span id="gesture-text">Pince pour attraper · 2 doigts pour ajouter</span></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-// ═══════════════════════════════════════════════
-//  THREE.JS SCENE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
+//  SCENE
+// ═══════════════════════════════════
 const canvas   = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x04040a, 1);
+renderer.setClearColor(0xf5f4f0, 1);
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x04040a);
-scene.fog = new THREE.Fog(0x04040a, 12, 25);
+scene.background = new THREE.Color(0xf5f4f0);
 
-const cam = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
-cam.position.set(0, 4, 7);
+// Camera — slight top-down angle like a table surface
+const cam = new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 100);
+cam.position.set(0, 6, 9);
 cam.lookAt(0, 0, 0);
 
 // ── Lights ──
-const ambient = new THREE.AmbientLight(0x111133, 2);
-scene.add(ambient);
-const dirLight = new THREE.DirectionalLight(0x00c8ff, 1.5);
-dirLight.position.set(5, 8, 5);
-dirLight.castShadow = true;
-scene.add(dirLight);
-const fillLight = new THREE.DirectionalLight(0xa855f7, 0.8);
-fillLight.position.set(-5, 3, -3);
-scene.add(fillLight);
+scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+sun.position.set(6, 12, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.width  = 2048;
+sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far  = 50;
+sun.shadow.camera.left = sun.shadow.camera.bottom = -10;
+sun.shadow.camera.right= sun.shadow.camera.top   =  10;
+sun.shadow.radius = 8;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xe8f4ff, 0.8);
+fill.position.set(-5, 4, -5);
+scene.add(fill);
 
-// ── GROUND PLANE ──
-const groundGeo = new THREE.PlaneGeometry(12, 12);
+// ── GROUND ──
+const groundGeo = new THREE.PlaneGeometry(20, 20);
 const groundMat = new THREE.MeshStandardMaterial({
-  color:0x04040a, roughness:1, metalness:0,
-  transparent:true, opacity:0
+  color: 0xfafaf8, roughness:0.95, metalness:0
 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI/2;
-ground.position.y = -1;
+ground.position.y = 0;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// ── GRID ──
-const grid = new THREE.GridHelper(12, 16, 0x0a1520, 0x0a1520);
-grid.position.y = -1.001;
-grid.material.transparent = true; grid.material.opacity = 0.8;
-scene.add(grid);
+// Subtle grid lines
+const gridHelper = new THREE.GridHelper(20, 30, 0xe0dfd8, 0xe0dfd8);
+gridHelper.position.y = 0.001;
+gridHelper.material.transparent = true;
+gridHelper.material.opacity = 0.8;
+scene.add(gridHelper);
 
-// Grid glow lines (brighter border)
-const gridBorderGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(12,12));
-const gridBorder = new THREE.LineSegments(gridBorderGeo,
-  new THREE.LineBasicMaterial({ color:0x00c8ff, transparent:true, opacity:.15 })
+// ── BLOCK COLORS ──
+const COLORS = [
+  { hex: 0xf97316, css: '#f97316' }, // orange
+  { hex: 0x3b82f6, css: '#3b82f6' }, // blue
+  { hex: 0x22c55e, css: '#22c55e' }, // green
+  { hex: 0xec4899, css: '#ec4899' }, // pink
+  { hex: 0xa855f7, css: '#a855f7' }, // purple
+  { hex: 0xeab308, css: '#eab308' }, // yellow
+  { hex: 0x111111, css: '#111111' }, // black
+  { hex: 0xdddddd, css: '#dddddd' }, // white/grey
+];
+
+let activeColor = 0; // index
+
+// Build palette UI
+const paletteEl = document.getElementById('palette');
+COLORS.forEach((c, i) => {
+  const btn = document.createElement('div');
+  btn.className = 'pal-item' + (i === 0 ? ' active' : '');
+  btn.style.background = c.css;
+  btn.onclick = () => { activeColor = i; refreshPalette(); };
+  paletteEl.appendChild(btn);
+});
+function refreshPalette() {
+  document.querySelectorAll('.pal-item').forEach((el,i) => {
+    el.classList.toggle('active', i === activeColor);
+  });
+}
+
+// ═══════════════════════════════════
+//  BLOCKS SYSTEM
+// ═══════════════════════════════════
+const blocks = []; // { group, mesh, size, posTarget }
+
+function createBlock(x, z, colorIdx, size = 1) {
+  const col  = COLORS[colorIdx];
+  const h    = size;
+  const geo  = new THREE.BoxGeometry(size, h, size);
+
+  const mat  = new THREE.MeshStandardMaterial({
+    color: col.hex, roughness:.25, metalness:.05
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow    = true;
+  mesh.receiveShadow = true;
+
+  // Soft edge outline
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color:0x000000, transparent:true, opacity:.08 })
+  );
+
+  const group = new THREE.Group();
+  group.add(mesh);
+  group.add(edges);
+  group.position.set(x, h/2, z);
+  scene.add(group);
+
+  const block = { group, mesh, edges, geo, size, colorIdx,
+    posTarget: new THREE.Vector3(x, h/2, z),
+    scaleTarget: 1, grabbed: false };
+  blocks.push(block);
+  updateCount();
+  return block;
+}
+
+// Spawn a starting block
+createBlock(0, 0, 0, 1);
+
+function updateCount() {
+  document.getElementById('bcount').textContent = blocks.length;
+}
+
+function clearAll() {
+  blocks.forEach(b => scene.remove(b.group));
+  blocks.length = 0;
+  updateCount();
+}
+
+// ── Ghost block (preview before placing) ──
+const ghostGeo = new THREE.BoxGeometry(1,1,1);
+const ghostMat = new THREE.MeshStandardMaterial({
+  color:0x111111, roughness:.3, metalness:0,
+  transparent:true, opacity:.15
+});
+const ghost = new THREE.Mesh(ghostGeo, ghostMat);
+ghost.visible = false;
+scene.add(ghost);
+const ghostEdge = new THREE.LineSegments(
+  new THREE.EdgesGeometry(ghostGeo),
+  new THREE.LineBasicMaterial({ color:0x111, transparent:true, opacity:.3 })
 );
-gridBorder.rotation.x = -Math.PI/2;
-gridBorder.position.y = -0.999;
-scene.add(gridBorder);
+ghost.add(ghostEdge);
 
-// ── THE CUBE ──
-const cubeSize = 1;
-const cubeGeo  = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-
-// Solid faces with material
-const cubeMat  = new THREE.MeshStandardMaterial({
-  color:0x001a2e,
-  roughness:.3, metalness:.8,
-  transparent:true, opacity:.85,
-  side:THREE.FrontSide
-});
-const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-cubeMesh.castShadow = true;
-
-// Wireframe edges
-const edgesGeo  = new THREE.EdgesGeometry(cubeGeo);
-const edgesMat  = new THREE.LineBasicMaterial({ color:0x00c8ff, transparent:true, opacity:.9 });
-const cubeEdges = new THREE.LineSegments(edgesGeo, edgesMat);
-
-// Corner dots
-const dotVerts = new Float32Array([
-  -.5,-.5,-.5,  .5,-.5,-.5,  -.5, .5,-.5,  .5, .5,-.5,
-  -.5,-.5, .5,  .5,-.5, .5,  -.5, .5, .5,  .5, .5, .5
-]);
-const dotGeo = new THREE.BufferGeometry();
-dotGeo.setAttribute('position', new THREE.BufferAttribute(dotVerts,3));
-const dots = new THREE.Points(dotGeo, new THREE.PointsMaterial({
-  color:0x00c8ff, size:.06, transparent:true, opacity:1, sizeAttenuation:true
-}));
-
-// Group everything
-const cubeGroup = new THREE.Group();
-cubeGroup.add(cubeMesh);
-cubeGroup.add(cubeEdges);
-cubeGroup.add(dots);
-cubeGroup.position.set(0, 0, 0);  // on the ground plane
-scene.add(cubeGroup);
-
-// Shadow circle under cube
-const shadowGeo = new THREE.CircleGeometry(.7, 32);
-const shadowMat = new THREE.MeshBasicMaterial({
-  color:0x00c8ff, transparent:true, opacity:.08
-});
-const shadowCircle = new THREE.Mesh(shadowGeo, shadowMat);
-shadowCircle.rotation.x = -Math.PI/2;
-shadowCircle.position.y = -0.998;
-scene.add(shadowCircle);
-
-// Grab glow (shown when grabbed)
-const glowMat = new THREE.MeshBasicMaterial({
-  color:0x00c8ff, transparent:true, opacity:0, side:THREE.BackSide
-});
-const glowMesh = new THREE.Mesh(
-  new THREE.BoxGeometry(cubeSize*1.12, cubeSize*1.12, cubeSize*1.12),
-  glowMat
-);
-cubeGroup.add(glowMesh);
-
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 //  HAND TRACKING STATE
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 const video      = document.getElementById('video');
 const camVideo   = document.getElementById('cam-video');
 const camWrap    = document.getElementById('cam-wrap');
 const handCanvas = document.getElementById('hand-canvas');
 const hCtx       = handCanvas.getContext('2d');
-const hdot       = document.getElementById('hdot');
-const stxt       = document.getElementById('stxt');
+const statusDot  = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
 const overlay    = document.getElementById('overlay');
-const loading    = document.getElementById('loading');
-const gestureEl  = document.getElementById('gesture');
+const gestureBar = document.getElementById('gesture-bar');
+const gestureIcon= document.getElementById('gesture-icon');
+const gestureTxt = document.getElementById('gesture-text');
+const gestureLbl = document.getElementById('gesture-label');
 
-// Cube state
-let cubePos    = new THREE.Vector3(0, 0, 0);
-let cubeScale  = 1;
-let cubeRotY   = 0;
-let grabbed    = false;
+let grabbedBlock  = null;
+let grabOffset    = new THREE.Vector3();
+let prevTwoHandDist = null;
+let scaleTarget   = 1;
 
-// Hand data
-let hand1 = null, hand2 = null;
-let prevPinchDist = null;
-let grabOffset = new THREE.Vector3();
+// Cooldown for "add block" gesture (avoid spam)
+let addCooldown = 0;
 
 function lerp(a,b,t){ return a+(b-a)*t; }
 
-// ── Convert MediaPipe landmark (0..1) → Three.js world coords ──
-// x: 0=left, 1=right (mirrored) → -5..5
-// y: 0=top,  1=bottom           → 4..-2 (inverted, clamped to plane)
-function lmToWorld(lm) {
-  const wx = -(lm.x - 0.5) * 10;   // mirrored
-  const wy = -(lm.y - 0.5) * 6;    // vertical
-  return new THREE.Vector3(wx, wy, 0);
-}
-
-// Project hand to ground plane (Y = cubePos.y)
+// Convert landmark to world XZ on ground plane
 function lmToGround(lm) {
-  const wx = -(lm.x - 0.5) * 8;
-  const wz =  (lm.y - 0.5) * 6;
-  return new THREE.Vector3(wx, 0, wz);
+  return new THREE.Vector3(
+    -(lm.x - 0.5) * 11,
+    0,
+     (lm.y - 0.5) * 8
+  );
 }
 
-// Pinch distance between thumb (4) and index (8)
-function pinchDist(lms) {
-  const t = lms[4], i = lms[8];
+// Snap to grid (0.5 increments)
+function snap(v, g=0.5){ return Math.round(v/g)*g; }
+
+// Pinch: thumb(4) + index(8)
+function pinchDist(lms){
+  const t=lms[4],i=lms[8];
   return Math.hypot(t.x-i.x, t.y-i.y);
 }
+function isPinching(lms){ return pinchDist(lms)<0.065; }
 
-// Is hand pinching?
-function isPinching(lms) {
-  return pinchDist(lms) < 0.06;
+// "2 fingers up" — index + middle extended, others closed
+function isTwoFingers(lms){
+  const indexUp  = lms[8].y < lms[6].y;
+  const middleUp = lms[12].y < lms[10].y;
+  const ringDown = lms[16].y > lms[14].y;
+  const pinkyDown= lms[20].y > lms[18].y;
+  const thumbIn  = pinchDist(lms) > 0.08;
+  return indexUp && middleUp && ringDown && pinkyDown && thumbIn;
 }
 
-// Wrist rotation (angle of wrist→middle_mcp)
-function wristAngle(lms) {
-  const w = lms[0], m = lms[9];
-  return Math.atan2(m.y - w.y, m.x - w.x);
+// Find closest block to a world position (XZ)
+function closestBlock(pos) {
+  let best = null, bestDist = 1.4;
+  blocks.forEach(b => {
+    const d = Math.hypot(b.group.position.x - pos.x, b.group.position.z - pos.z);
+    if (d < bestDist) { bestDist = d; best = b; }
+  });
+  return best;
 }
 
-// ── Draw hand skeleton on canvas ──
-const HAND_CONNECTIONS = [
+// ── Draw hand skeleton ──
+const CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,4],
   [0,5],[5,6],[6,7],[7,8],
   [5,9],[9,10],[10,11],[11,12],
@@ -358,159 +497,167 @@ const HAND_CONNECTIONS = [
   [13,17],[17,18],[18,19],[19,20],[0,17]
 ];
 
-function drawHand(lms, color, pinching) {
+function drawHand(lms, pinching, twoFing) {
   const W = handCanvas.width, H = handCanvas.height;
-
-  hCtx.strokeStyle = color;
+  hCtx.strokeStyle = pinching ? '#f97316' : '#888';
   hCtx.lineWidth = 1.5;
-  hCtx.globalAlpha = 0.6;
-
-  HAND_CONNECTIONS.forEach(([a,b]) => {
+  hCtx.globalAlpha = .45;
+  CONNECTIONS.forEach(([a,b]) => {
     hCtx.beginPath();
-    hCtx.moveTo(lms[a].x * W, lms[a].y * H);
-    hCtx.lineTo(lms[b].x * W, lms[b].y * H);
+    hCtx.moveTo(lms[a].x*W, lms[a].y*H);
+    hCtx.lineTo(lms[b].x*W, lms[b].y*H);
     hCtx.stroke();
   });
-
-  // Landmark dots
-  lms.forEach((lm, i) => {
-    const isThumb = i === 4, isIndex = i === 8;
-    const r = (isThumb || isIndex) ? 6 : 3;
-    hCtx.globalAlpha = (isThumb || isIndex) ? 1 : 0.5;
-    hCtx.fillStyle = pinching && isThumb && isIndex ? '#ff2d78' : color;
+  lms.forEach((lm,i) => {
+    const key = [4,8,12].includes(i);
+    hCtx.globalAlpha = key ? .9 : .4;
+    hCtx.fillStyle = pinching && i===4 ? '#f97316'
+                   : twoFing && (i===8||i===12) ? '#3b82f6' : '#333';
     hCtx.beginPath();
-    hCtx.arc(lm.x * W, lm.y * H, r, 0, Math.PI*2);
+    hCtx.arc(lm.x*W, lm.y*H, key?5:2.5, 0, Math.PI*2);
     hCtx.fill();
   });
-
-  // Pinch line
-  if (pinching) {
-    hCtx.globalAlpha = 0.8;
-    hCtx.strokeStyle = '#ff2d78';
-    hCtx.lineWidth = 2;
-    hCtx.setLineDash([3,3]);
-    hCtx.beginPath();
-    hCtx.moveTo(lms[4].x * W, lms[4].y * H);
-    hCtx.lineTo(lms[8].x * W, lms[8].y * H);
-    hCtx.stroke();
-    hCtx.setLineDash([]);
-  }
-
   hCtx.globalAlpha = 1;
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════
 //  MEDIAPIPE RESULTS
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════
 function onHands(results) {
-  // Resize hand canvas to match display
   handCanvas.width  = window.innerWidth;
   handCanvas.height = window.innerHeight;
-  hCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
+  hCtx.clearRect(0,0,handCanvas.width,handCanvas.height);
+  ghost.visible = false;
 
-  hand1 = null; hand2 = null;
+  if (addCooldown > 0) addCooldown--;
 
   if (!results.multiHandLandmarks?.length) {
-    hdot.className = 'err';
-    stxt.innerHTML = 'Mains <em style="color:#ff2d78">non détectées</em>';
-    gestureEl.className = '';
-    gestureEl.textContent = 'Montre tes mains à la caméra';
-    grabbed = false;
-    glowMat.opacity = 0;
+    statusDot.className = 'err';
+    statusText.innerHTML = 'Mains non détectées';
+    gestureBar.className = '';
+    gestureTxt.textContent = 'Montre tes mains à la caméra';
+    gestureIcon.textContent = '👋';
+    gestureLbl.textContent = '—';
+    if (grabbedBlock) { grabbedBlock.grabbed = false; grabbedBlock = null; }
+    prevTwoHandDist = null;
     return;
   }
 
-  hdot.className = 'on';
-
+  statusDot.className = 'on';
   const lms0 = results.multiHandLandmarks[0];
-  const lms1 = results.multiHandLandmarks[1];
-  hand1 = lms0;
-  hand2 = lms1 || null;
+  const lms1 = results.multiHandLandmarks[1] || null;
 
-  const pinch1 = isPinching(lms0);
-  const pinch2 = hand2 ? isPinching(hand2) : false;
+  const pinch0   = isPinching(lms0);
+  const twoFing0 = isTwoFingers(lms0);
 
-  // Draw skeletons
-  drawHand(lms0, '#00c8ff', pinch1);
-  if (hand2) drawHand(hand2, '#a855f7', pinch2);
+  drawHand(lms0, pinch0, twoFing0);
+  if (lms1) drawHand(lms1, isPinching(lms1), false);
 
-  // ── TWO HANDS: Scale ──
-  if (hand1 && hand2) {
-    const p1 = lms0[9]; // palm center hand1
-    const p2 = hand2[9]; // palm center hand2
-    const dist = Math.hypot(p1.x-p2.x, p1.y-p2.y);
-
-    if (prevPinchDist !== null) {
-      const delta = dist - prevPinchDist;
-      cubeScale = Math.max(0.3, Math.min(4, cubeScale + delta * 6));
+  // ── TWO HANDS → SCALE grabbed block ──
+  if (lms1 && grabbedBlock) {
+    const p0 = lms0[9], p1 = lms1[9];
+    const d  = Math.hypot(p0.x-p1.x, p0.y-p1.y);
+    if (prevTwoHandDist !== null) {
+      const delta = (d - prevTwoHandDist) * 7;
+      grabbedBlock.scaleTarget = Math.max(0.3, Math.min(4, grabbedBlock.scaleTarget + delta));
     }
-    prevPinchDist = dist;
-
-    stxt.innerHTML = '<em>2 mains</em> — scale';
-    gestureEl.className = 'active';
-    gestureEl.textContent = `↔ Écarte les mains  ·  scale: ${cubeScale.toFixed(2)}x`;
-
-    // Rotate with wrist angle difference
-    const angle1 = wristAngle(lms0);
-    cubeRotY += (angle1 * 0.01);
-
+    prevTwoHandDist = d;
+    statusText.innerHTML = '<b>2 mains</b> · scale';
+    gestureBar.className = 'active';
+    gestureIcon.textContent = '🤲';
+    gestureTxt.textContent = `Écarte · ×${grabbedBlock.scaleTarget.toFixed(2)}`;
+    gestureLbl.textContent  = `×${grabbedBlock.scaleTarget.toFixed(2)}`;
+    return;
   } else {
-    prevPinchDist = null;
-
-    // ── ONE HAND: Move ──
-    const palm = lmToGround(lms0[9]);
-
-    if (pinch1) {
-      // GRABBED
-      if (!grabbed) {
-        grabbed = true;
-        grabOffset.copy(cubePos).sub(palm);
-      }
-      cubePos.x = lerp(cubePos.x, palm.x + grabOffset.x, 0.25);
-      cubePos.z = lerp(cubePos.z, palm.z + grabOffset.z, 0.25);
-
-      // Auto-rotate when grabbed based on wrist
-      cubeRotY = lerp(cubeRotY, wristAngle(lms0) * 2, 0.08);
-
-      stxt.innerHTML = '<em>Pincé</em> — déplacement';
-      gestureEl.className = 'active';
-      gestureEl.textContent = '🤏 Cube attrapé — déplace ta main';
-      glowMat.opacity = lerp(glowMat.opacity, 0.15, 0.15);
-      edgesMat.color.setHex(0xff2d78);
-    } else {
-      // Open hand — release
-      grabbed = false;
-      grabOffset.set(0,0,0);
-      glowMat.opacity = lerp(glowMat.opacity, 0, 0.1);
-      edgesMat.color.setHex(0x00c8ff);
-
-      stxt.innerHTML = '1 main — <em>pince pour attraper</em>';
-      gestureEl.className = '';
-      gestureEl.textContent = '☝ Pince (pouce + index) pour attraper';
-    }
+    prevTwoHandDist = null;
   }
 
-  // Clamp to ground surface
-  cubePos.y = 0;
-  cubePos.x = Math.max(-5, Math.min(5, cubePos.x));
-  cubePos.z = Math.max(-4, Math.min(4, cubePos.z));
+  const palmPos = lmToGround(lms0[9]);
+  const indexPos= lmToGround(lms0[8]);
+
+  // ── ADD BLOCK gesture (2 fingers) ──
+  if (twoFing0 && addCooldown === 0 && !grabbedBlock) {
+    const wp = lmToGround(lms0[8]);
+    const sx = snap(wp.x), sz = snap(wp.z);
+
+    // Show ghost
+    ghost.visible = true;
+    ghost.position.set(sx, 0.5, sz);
+    ghost.material.color.setHex(COLORS[activeColor].hex);
+
+    statusText.innerHTML = '<b>✌</b> Ajouter bloc';
+    gestureBar.className = 'active';
+    gestureIcon.textContent = '✌️';
+    gestureTxt.textContent = 'Ferme les doigts pour placer';
+    gestureLbl.textContent = 'Placer';
+
+    // Place when fingers come together
+    if (pinchDist(lms0) < 0.09) {
+      createBlock(sx, sz, activeColor, 1);
+      addCooldown = 30;
+      ghost.visible = false;
+    }
+    return;
+  }
+
+  // ── PINCH → grab / move ──
+  if (pinch0) {
+    if (!grabbedBlock) {
+      // Find closest block
+      grabbedBlock = closestBlock(palmPos);
+      if (grabbedBlock) {
+        grabbedBlock.grabbed = true;
+        grabOffset.set(
+          grabbedBlock.group.position.x - palmPos.x,
+          0,
+          grabbedBlock.group.position.z - palmPos.z
+        );
+      }
+    }
+    if (grabbedBlock) {
+      const tx = snap(palmPos.x + grabOffset.x, 0.5);
+      const tz = snap(palmPos.z + grabOffset.z, 0.5);
+      grabbedBlock.posTarget.x = Math.max(-8, Math.min(8, tx));
+      grabbedBlock.posTarget.z = Math.max(-6, Math.min(6, tz));
+
+      statusText.innerHTML = '<b>Déplacement</b> actif';
+      gestureBar.className = 'active';
+      gestureIcon.textContent = '🤏';
+      gestureTxt.textContent = 'Déplace ta main';
+      gestureLbl.textContent = `(${tx.toFixed(1)}, ${tz.toFixed(1)})`;
+
+      // highlight grabbed block
+      grabbedBlock.mesh.material.emissive = new THREE.Color(0xffffff);
+      grabbedBlock.mesh.material.emissiveIntensity = 0.08;
+    }
+  } else {
+    // Release
+    if (grabbedBlock) {
+      grabbedBlock.grabbed = false;
+      grabbedBlock.mesh.material.emissiveIntensity = 0;
+      grabbedBlock = null;
+    }
+    statusText.innerHTML = `<b>${blocks.length}</b> bloc${blocks.length>1?'s':''}`;
+    gestureBar.className = '';
+    gestureIcon.textContent = '☝';
+    gestureTxt.textContent = 'Pince pour attraper · ✌ pour ajouter';
+    gestureLbl.textContent = 'Prêt';
+  }
 }
 
-// ─────────────────────────────────────────────
-//  START MEDIAPIPE HANDS
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════
+//  START
+// ═══════════════════════════════════
 async function startTracking() {
-  loading.style.display = 'block';
+  document.getElementById('loading').style.display = 'block';
   document.getElementById('start-btn').style.display = 'none';
 
   const hands = new Hands({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
   });
   hands.setOptions({
-    maxNumHands: 2,
-    modelComplexity: 1,
-    minDetectionConfidence: .7,
-    minTrackingConfidence: .6
+    maxNumHands:2, modelComplexity:1,
+    minDetectionConfidence:.7, minTrackingConfidence:.6
   });
   hands.onResults(onHands);
 
@@ -520,64 +667,52 @@ async function startTracking() {
     });
     video.srcObject = stream;
     camVideo.srcObject = stream;
-
     video.onloadedmetadata = () => {
-      video.play();
-      camVideo.play();
+      video.play(); camVideo.play();
       overlay.classList.add('hidden');
       camWrap.classList.add('visible');
-      hdot.className = 'on';
-      stxt.innerHTML = 'Hand <em>tracking actif</em>';
-
-      ;(async function loop() {
+      statusDot.className = 'on';
+      statusText.innerHTML = 'Hand <b>tracking actif</b>';
+      ;(async function loop(){
         await hands.send({ image: video });
         requestAnimationFrame(loop);
       })();
     };
   } catch(e) {
-    hdot.className = 'err';
-    stxt.textContent = 'Caméra refusée';
-    loading.style.display = 'none';
+    statusDot.className = 'err';
+    statusText.textContent = 'Caméra refusée';
+    document.getElementById('loading').style.display = 'none';
     document.getElementById('start-btn').style.display = '';
   }
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 //  RENDER LOOP
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════
 const clock = new THREE.Clock();
-let smoothScale = 1;
-let smoothRotY  = 0;
 
-(function tick() {
+(function tick(){
   requestAnimationFrame(tick);
   const t = clock.getElapsedTime();
 
-  // Smooth cube transform
-  cubeGroup.position.x = lerp(cubeGroup.position.x, cubePos.x, 0.18);
-  cubeGroup.position.z = lerp(cubeGroup.position.z, cubePos.z, 0.18);
-  cubeGroup.position.y = cubeScale / 2 - 1; // sit on ground
+  blocks.forEach(b => {
+    // Smooth position
+    b.group.position.x = lerp(b.group.position.x, b.posTarget.x, 0.2);
+    b.group.position.z = lerp(b.group.position.z, b.posTarget.z, 0.2);
 
-  smoothScale = lerp(smoothScale, cubeScale, 0.12);
-  cubeGroup.scale.setScalar(smoothScale);
+    // Smooth scale
+    const s = lerp(b.group.scale.x, b.scaleTarget, 0.12);
+    b.group.scale.setScalar(s);
+    b.group.position.y = (b.size * s) / 2;
 
-  smoothRotY = lerp(smoothRotY, cubeRotY, 0.08);
-  cubeGroup.rotation.y = smoothRotY;
+    // Subtle hover float when grabbed
+    if (b.grabbed) {
+      b.group.position.y += 0.15 + Math.sin(t*4)*0.02;
+    }
+  });
 
-  // Gentle idle float when not grabbed
-  if (!grabbed) {
-    cubeGroup.rotation.x = Math.sin(t * 0.4) * 0.06;
-    cubeGroup.position.y += Math.sin(t * 0.8) * 0.004;
-  }
-
-  // Shadow follows cube
-  shadowCircle.position.x = cubeGroup.position.x;
-  shadowCircle.position.z = cubeGroup.position.z;
-  shadowCircle.scale.setScalar(smoothScale);
-  shadowMat.opacity = 0.05 + smoothScale * 0.03;
-
-  // Grid glow pulse
-  grid.material.opacity = 0.5 + Math.sin(t * 0.5) * 0.15;
+  // Grid pulse
+  gridHelper.material.opacity = 0.5 + Math.sin(t*.4)*.2;
 
   renderer.render(scene, cam);
 })();
@@ -586,8 +721,6 @@ window.addEventListener('resize', () => {
   cam.aspect = window.innerWidth/window.innerHeight;
   cam.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  handCanvas.width  = window.innerWidth;
-  handCanvas.height = window.innerHeight;
 });
 </script>
 
