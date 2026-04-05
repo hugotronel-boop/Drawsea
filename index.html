@@ -70,6 +70,44 @@ color: var(–muted);
 text-transform: uppercase;
 }
 
+/* ═══ CAMERA SWITCH BTN ═══ */
+#cam-switch-btn {
+background: transparent;
+border: 1px solid var(–border);
+color: var(–text);
+font-family: ‘DM Mono’, monospace;
+font-size: 18px;
+width: 38px; height: 38px;
+display: flex; align-items: center; justify-content: center;
+cursor: pointer;
+flex-shrink: 0;
+transition: border-color 0.15s, color 0.15s;
+position: relative;
+}
+#cam-switch-btn:active { border-color: var(–accent); color: var(–accent); }
+#cam-switch-btn.spinning { animation: spinIcon 0.35s ease-out; }
+@keyframes spinIcon {
+from { transform: rotate(0deg); }
+to   { transform: rotate(180deg); }
+}
+
+/* Camera label pill */
+#cam-label {
+font-size: 8px;
+letter-spacing: 1.5px;
+color: var(–muted);
+text-transform: uppercase;
+white-space: nowrap;
+margin-right: 6px;
+transition: opacity 0.2s;
+}
+
+#header-right {
+display: flex;
+align-items: center;
+gap: 0;
+}
+
 /* ═══ CAMERA FEED ═══ */
 #camera-container {
 position: fixed;
@@ -419,7 +457,10 @@ transform: translate(-50%, -50%);
 
 <div id="header">
   <h1>PUZZLE·CAM</h1>
-  <div class="subtitle">Pinch → Capture → Solve</div>
+  <div id="header-right">
+    <span id="cam-label">arrière</span>
+    <button id="cam-switch-btn" title="Changer de caméra">⟳</button>
+  </div>
 </div>
 
 <!-- Camera -->
