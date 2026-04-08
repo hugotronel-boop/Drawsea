@@ -1,770 +1,122 @@
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>PUZZLE·CAM</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap');
-
-:root {
-–accent: #e8ff00;
-–accent2: #ff4d1a;
-–bg: #080808;
-–border: #222;
-–text: #f0ede6;
-–muted: #555;
-}
-
-- { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent; }
-
-body {
-background: #000;
-font-family: ‘DM Mono’, monospace;
-height: 100dvh;
-overflow: hidden;
-position: relative;
-}
-
-/* grain */
-body::after {
-content:’’; position:fixed; inset:0;
-background-image:url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 200 200’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=’.85’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23n)’ opacity=‘1’/%3E%3C/svg%3E”);
-opacity:.035; pointer-events:none; z-index:9000;
-}
-
-#ar-canvas {
-position:fixed; inset:0; width:100%; height:100%;
-z-index:10; pointer-events:none;
-}
-
-#video {
-position:fixed; inset:0; width:100%; height:100%;
-object-fit:cover;
-transform: scaleX(-1);
-z-index:1;
-}
-
-#vignette {
-position:fixed; inset:0;
-background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.65) 100%);
-z-index:11; pointer-events:none;
-}
-
-/* header */
-#header {
-position:fixed; top:0; left:0; right:0;
-padding:14px 18px 10px;
-display:flex; justify-content:space-between; align-items:center;
-border-bottom:1px solid var(–border);
-background:rgba(8,8,8,.85); backdrop-filter:blur(12px);
-z-index:100;
-}
-#header h1 {
-font-family:‘Bebas Neue’,sans-serif;
-font-size:26px; letter-spacing:5px; color:var(–accent);
-}
-#status-pill {
-font-size:9px; letter-spacing:2px; color:var(–muted);
-text-transform:uppercase; border:1px solid var(–border); padding:5px 10px;
-transition:color .3s,border-color .3s;
-}
-#status-pill.active { color:var(–accent); border-color:var(–accent); }
-#status-pill.ready  { color:var(–accent2); border-color:var(–accent2); }
-
-/* loading */
-#loading {
-position:fixed; inset:0; z-index:500; background:var(–bg);
-display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-}
-#loading h2 {
-font-family:‘Bebas Neue’,sans-serif; font-size:32px; letter-spacing:6px; color:var(–accent);
-}
-#loading p { font-size:10px; letter-spacing:2px; color:var(–muted); text-transform:uppercase; text-align:center; padding:0 20px; }
-.spinner {
-width:36px; height:36px; border:2px solid var(–border);
-border-top-color:var(–accent); border-radius:50%; animation:spin .8s linear infinite;
-}
-@keyframes spin { to{transform:rotate(360deg);} }
-
-/* instruction */
-#instruction {
-position:fixed; bottom:44px; left:50%; transform:translateX(-50%);
-z-index:50; text-align:center; pointer-events:none; transition:opacity .4s;
-}
-#instruction .ico { font-size:36px; margin-bottom:8px; animation:pulse 2s ease-in-out infinite; }
-@keyframes pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.12);opacity:1} }
-#instruction .l1 { font-family:‘Bebas Neue’,sans-serif; font-size:20px; letter-spacing:3px; color:var(–text); }
-#instruction .l2 { font-size:9px; letter-spacing:2px; color:var(–muted); margin-top:4px; }
-
-/* flash */
-#flash { position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:800; }
-#flash.go { animation:flashAnim .35s ease-out forwards; }
-@keyframes flashAnim { 0%{opacity:1} 100%{opacity:0} }
-
-/* puzzle screen */
-#puzzle-screen {
-position:fixed; inset:0; z-index:200;
-display:none; flex-direction:column; align-items:center; padding-top:64px;
-background:rgba(0,0,0,.1);
-}
-#puzzle-board {
-position:relative; margin-top:10px;
-box-shadow:0 0 0 1px var(–border),0 20px 60px rgba(0,0,0,.6);
-flex-shrink:0;
-}
-.puzzle-piece {
-position:absolute; border:1px solid rgba(0,0,0,.5); will-change:transform;
-transition:box-shadow .15s;
-}
-.puzzle-piece.held {
-z-index:200; box-shadow:0 0 0 2px var(–accent),0 8px 30px rgba(0,0,0,.7); transition:none;
-}
-.puzzle-piece.correct { box-shadow:inset 0 0 0 2px rgba(232,255,0,.5); }
-
-#puzzle-hud {
-display:flex; justify-content:space-between; align-items:center;
-width:100%; padding:0 18px 10px;
-}
-#grid-label { font-family:‘Bebas Neue’,sans-serif; font-size:22px; letter-spacing:3px; color:var(–accent); }
-#move-count-wrap { font-size:10px; letter-spacing:1px; color:var(–muted); }
-#move-count-wrap span { color:var(–text); font-size:16px; }
-
-#preview-wrap {
-display:flex; align-items:center; gap:10px;
-align-self:flex-start; padding:0 18px; margin-bottom:6px;
-}
-#thumb-canvas { border:1px solid var(–border); opacity:.75; flex-shrink:0; }
-#preview-label { font-size:9px; letter-spacing:2px; color:var(–muted); line-height:1.7; }
-#preview-label strong { display:block; color:var(–text); font-size:10px; margin-bottom:3px; }
-
-#gesture-hint {
-position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
-font-size:9px; letter-spacing:2px; color:var(–muted);
-text-transform:uppercase; z-index:250; pointer-events:none; white-space:nowrap;
-}
-
-/* victory */
-#victory {
-position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.92);
-display:none; flex-direction:column; align-items:center; justify-content:center;
-}
-#victory .trophy { font-size:56px; animation:trophyPop .5s cubic-bezier(.34,1.56,.64,1) both; transform:scale(0); }
-@keyframes trophyPop { to{transform:scale(1) rotate(-6deg);} }
-#victory h2 {
-font-family:‘Bebas Neue’,sans-serif; font-size:52px; letter-spacing:7px; color:var(–accent);
-margin-top:14px; animation:fadeUp .4s .15s both;
-}
-#victory .vstats { font-size:11px; letter-spacing:2px; color:var(–muted); animation:fadeUp .4s .25s both; }
-#victory .vstats span { color:var(–text); }
-@keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-.vdivider { width:50px;height:1px;background:var(–border);margin:24px 0;animation:fadeUp .4s .3s both; }
-.vnext-label { font-size:9px;letter-spacing:3px;color:var(–muted);text-transform:uppercase;margin-bottom:12px;animation:fadeUp .4s .35s both; }
-.vbtns { display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:0 28px;animation:fadeUp .4s .4s both; }
-.vbtn {
-font-family:‘DM Mono’,monospace; font-size:10px; letter-spacing:2px;
-text-transform:uppercase; padding:12px 20px;
-border:1px solid var(–border); background:transparent; color:var(–text); cursor:pointer;
-}
-.vbtn.primary { background:var(–accent); border-color:var(–accent); color:#000; }
-
-/* retake */
-#retake-btn {
-position:fixed; bottom:28px; right:16px; z-index:260;
-font-family:‘DM Mono’,monospace; font-size:9px; letter-spacing:2px;
-text-transform:uppercase; padding:10px 14px;
-border:1px solid var(–border); background:rgba(8,8,8,.85); backdrop-filter:blur(8px);
-color:var(–muted); cursor:pointer; display:none;
-touch-action:manipulation;
-}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Papier IA</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        #video-container { position: relative; width: 100vw; height: 100vh; }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        #gui { position: absolute; top: 10px; left: 10px; color: white; z-index: 10; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
+        .piano-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
+            display: flex; opacity: 0.3; pointer-events: none;
+        }
+        .key { flex: 1; border: 1px solid white; background: rgba(255,255,255,0.2); display: flex; align-items: flex-end; justify-content: center; color: white; padding-bottom: 10px; }
+        .key.active { background: rgba(0, 255, 0, 0.6); }
+    </style>
 </head>
 <body>
 
-<video id="video" autoplay playsinline muted></video>
-<canvas id="ar-canvas"></canvas>
-
-<div id="vignette"></div>
-
-<div id="header">
-  <h1>PUZZLE·CAM</h1>
-  <div id="status-pill">chargement…</div>
+<div id="gui">
+    <h3>Piano IA</h3>
+    <p>Placez le dessin du piano sous les zones éclairées.</p>
+    <button onclick="startAudio()">Activer le son</button>
 </div>
 
-<div id="loading">
-  <div class="spinner"></div>
-  <h2>PUZZLE·CAM</h2>
-  <p>Chargement de la détection des mains…</p>
-</div>
-
-<div id="instruction">
-  <div class="ico">🤲</div>
-  <div class="l1">Pince avec deux mains</div>
-  <div class="l2">Pouce + index · étire pour cadrer · relâche pour capturer</div>
-</div>
-
-<div id="flash"></div>
-
-<div id="puzzle-screen">
-  <div id="preview-wrap">
-    <canvas id="thumb-canvas" width="52" height="52"></canvas>
-    <div id="preview-label">
-      <strong>MODÈLE</strong>
-      Pince une pièce<br>pour la déplacer
+<div id="video-container">
+    <video id="input_video"></video>
+    <canvas id="output_canvas"></canvas>
+    <div class="piano-overlay" id="piano">
+        <div class="key" id="C4">DO</div>
+        <div class="key" id="D4">RE</div>
+        <div class="key" id="E4">MI</div>
+        <div class="key" id="F4">FA</div>
+        <div class="key" id="G4">SOL</div>
+        <div class="key" id="A4">LA</div>
+        <div class="key" id="B4">SI</div>
     </div>
-  </div>
-  <div id="puzzle-hud">
-    <div id="grid-label">3 × 3</div>
-    <div id="move-count-wrap">MOVES <span id="move-count">0</span></div>
-  </div>
-  <div id="puzzle-board"></div>
-  <div id="gesture-hint">🤏 Pince une pièce · relâche pour placer</div>
 </div>
-
-<button id="retake-btn">↩ Nouvelle photo</button>
-
-<div id="victory">
-  <div class="trophy">🏆</div>
-  <h2>SOLVED</h2>
-  <div class="vstats">En <span id="final-moves">0</span> coups</div>
-  <div class="vdivider"></div>
-  <div class="vnext-label">Continuer</div>
-  <div class="vbtns" id="vbtns"></div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-// ══════════════════════════════════════════
-// CONSTANTS
-// ══════════════════════════════════════════
-const PINCH_ON  = 0.07;   // normalized dist → pinching
-const PINCH_OFF = 0.10;   // hysteresis release
-const MIN_BOX   = 70;     // px min for capture
+const videoElement = document.getElementById('input_video');
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
+const synth = new Tone.PolySynth(Tone.Synth).toDestination();
 
-// landmark indices
-const THUMB_TIP = 4, INDEX_TIP = 8;
+let activeNotes = new Set();
 
-// skeleton connections
-const HAND_CONNS = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [5,9],[9,10],[10,11],[11,12],
-  [9,13],[13,14],[14,15],[15,16],
-  [13,17],[17,18],[18,19],[19,20],
-  [0,17]
-];
-
-// ══════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════
-const S = {
-  phase: 'loading',
-  gridSize: 3,
-  moves: 0,
-  pieces: [],
-  boardSize: 0, pieceSize: 0,
-  capturedCanvas: null,
-  boardRect: null,
-  // hand state — one entry per detected hand
-  hands: [],       // { pinching, tip, thumb, index, lm }
-  prevPinching: [],// bool per hand slot to track transitions
-  // camera-phase selection
-  selActive: false,
-  selX:0, selY:0, selW:0, selH:0,
-  // puzzle-phase drag
-  dragPiece: null,
-  dragOX: 0, dragOY: 0,
-  capturing: false,
-};
-
-// ══════════════════════════════════════════
-// DOM
-// ══════════════════════════════════════════
-const video        = document.getElementById('video');
-const arCanvas     = document.getElementById('ar-canvas');
-const ctx          = arCanvas.getContext('2d');
-const loadingEl    = document.getElementById('loading');
-const instrEl      = document.getElementById('instruction');
-const statusPill   = document.getElementById('status-pill');
-const flashEl      = document.getElementById('flash');
-const puzzleScreen = document.getElementById('puzzle-screen');
-const puzzleBoard  = document.getElementById('puzzle-board');
-const retakeBtn    = document.getElementById('retake-btn');
-const victoryEl    = document.getElementById('victory');
-
-function resizeCanvas() {
-  arCanvas.width  = window.innerWidth;
-  arCanvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
-// ══════════════════════════════════════════
-// CAMERA — front-facing preferred
-// ══════════════════════════════════════════
-async function startCamera() {
-  const tries = [
-    { video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} }, audio:false },
-    { video:{ facingMode:{ideal:'user'}, width:{ideal:1280} }, audio:false },
-    { video:true, audio:false }
-  ];
-  for (const c of tries) {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia(c);
-      video.srcObject = stream;
-      await new Promise(r => { video.onloadedmetadata = r; });
-      return true;
-    } catch(_) {}
-  }
-  return false;
+function startAudio() {
+    Tone.start();
+    document.getElementById('gui').style.display = 'none';
 }
 
-// ══════════════════════════════════════════
-// COORD HELPERS
-// ══════════════════════════════════════════
-// MediaPipe gives normalized 0-1 coords in the *un-mirrored* frame.
-// Our <video> is CSS-mirrored (scaleX(-1)).
-// For a front cam: MP x=0 → left in raw frame → right on screen (after mirror).
-// So screen_x = (1 - nx) * rendered_width - offset_x
-function mpToScreen(nx, ny) {
-  const sw = window.innerWidth, sh = window.innerHeight;
-  const vw = video.videoWidth  || sw;
-  const vh = video.videoHeight || sh;
-  const vAR = vw / vh, sAR = sw / sh;
-  let rw, rh;
-  if (vAR > sAR) { rh = sh; rw = sh * vAR; } else { rw = sw; rh = sw / vAR; }
-  const ox = (rw - sw) / 2, oy = (rh - sh) / 2;
-  return {
-    x: (1 - nx) * rw - ox,
-    y: ny * rh - oy
-  };
-}
+function onResults(results) {
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-function dist2D(a, b) { return Math.hypot(a.x-b.x, a.y-b.y); }
+    let currentFrameNotes = new Set();
 
-// ══════════════════════════════════════════
-// MEDIAPIPE INIT
-// ══════════════════════════════════════════
-function initHands() {
-  const hands = new Hands({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
-  });
-  hands.setOptions({
-    maxNumHands: 2,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.6,
-  });
-  hands.onResults(onHandResults);
+    if (results.multiHandLandmarks) {
+        for (const landmarks of results.multiHandLandmarks) {
+            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 5});
+            
+            // On récupère l'index (point 8)
+            const indexFinger = landmarks[8];
+            const x = indexFinger.x * window.innerWidth;
+            const y = indexFinger.y * window.innerHeight;
 
-  const cam = new Camera(video, {
-    onFrame: async () => { await hands.send({ image: video }); },
-    width: 1280, height: 720,
-  });
-  cam.start();
-}
+            // Vérifier si le doigt est dans la zone du piano (30% bas de l'écran)
+            if (indexFinger.y > 0.7) {
+                const keyWidth = window.innerWidth / 7;
+                const keyIndex = Math.floor(x / keyWidth);
+                const notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4"];
+                
+                if (keyIndex >= 0 && keyIndex < 7) {
+                    const note = notes[keyIndex];
+                    currentFrameNotes.add(note);
+                }
+            }
+        }
+    }
 
-// ══════════════════════════════════════════
-// HAND RESULTS
-// ══════════════════════════════════════════
-function onHandResults(results) {
-  if (S.phase === 'loading' || S.capturing) return;
+    // Gestion du son pour éviter les répétitions en boucle
+    const notesToPlay = [...currentFrameNotes].filter(n => !activeNotes.has(n));
+    const notesToStop = [...activeNotes].filter(n => !currentFrameNotes.has(n));
 
-  const multiLM = results.multiHandLandmarks || [];
-  S.hands = [];
-
-  for (let hi = 0; hi < multiLM.length; hi++) {
-    const lm = multiLM[hi];
-    const thumb = lm[THUMB_TIP];
-    const index = lm[INDEX_TIP];
-    const d = dist2D(thumb, index);
-
-    const wasPinching = S.prevPinching[hi] || false;
-    const pinching = wasPinching ? d < PINCH_OFF : d < PINCH_ON;
-    S.prevPinching[hi] = pinching;
-
-    const tipN = { x:(thumb.x+index.x)/2, y:(thumb.y+index.y)/2 };
-    S.hands.push({
-      pinching,
-      pinchDist: d,
-      tip:   mpToScreen(tipN.x, tipN.y),
-      thumb: mpToScreen(thumb.x, thumb.y),
-      index: mpToScreen(index.x, index.y),
-      lm,
+    notesToPlay.forEach(n => {
+        synth.triggerAttack(n);
+        document.getElementById(n).classList.add('active');
     });
-  }
-  // Clear old pinch states if fewer hands detected
-  S.prevPinching.length = multiLM.length;
+    notesToStop.forEach(n => {
+        synth.triggerRelease(n);
+        document.getElementById(n).classList.remove('active');
+    });
 
-  if (S.phase === 'camera') handleCameraGestures();
-  else if (S.phase === 'puzzle') handlePuzzleGestures();
-
-  drawAR();
+    activeNotes = currentFrameNotes;
+    canvasCtx.restore();
 }
 
-// ══════════════════════════════════════════
-// CAMERA GESTURES
-// ══════════════════════════════════════════
-function handleCameraGestures() {
-  const h = S.hands;
-  const bothPinching = h.length >= 2 && h[0].pinching && h[1].pinching;
+const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+hands.onResults(onResults);
 
-  if (bothPinching) {
-    const t0 = h[0].tip, t1 = h[1].tip;
-    S.selActive = true;
-    S.selX = Math.min(t0.x, t1.x);
-    S.selY = Math.min(t0.y, t1.y);
-    S.selW = Math.abs(t0.x - t1.x);
-    S.selH = Math.abs(t0.y - t1.y);
-    statusPill.textContent = 'SÉLECTION';
-    statusPill.className = 'active';
-    instrEl.style.opacity = '0';
-  } else if (S.selActive) {
-    // Just released
-    if (S.selW > MIN_BOX && S.selH > MIN_BOX) {
-      triggerCapture(S.selX, S.selY, S.selW, S.selH);
-    }
-    S.selActive = false;
-  } else {
-    instrEl.style.opacity = '1';
-    statusPill.textContent = h.length > 0 ? 'MAINS DÉTECTÉES' : 'PRÊT';
-    statusPill.className = h.length > 0 ? 'active' : 'ready';
-  }
-}
-
-// ══════════════════════════════════════════
-// PUZZLE GESTURES
-// ══════════════════════════════════════════
-function handlePuzzleGestures() {
-  if (!S.boardRect) updateBoardRect();
-  const pinchHand = S.hands.find(h => h.pinching);
-
-  if (pinchHand) {
-    const px = pinchHand.tip.x, py = pinchHand.tip.y;
-    if (!S.dragPiece) {
-      // grab
-      const p = getPieceAt(px, py);
-      if (p) {
-        S.dragPiece = p;
-        const br = S.boardRect;
-        S.dragOX = (px - br.left) - parseFloat(p.el.style.left);
-        S.dragOY = (py - br.top)  - parseFloat(p.el.style.top);
-        p.el.classList.add('held');
-        p.el.style.zIndex = 200;
-      }
-    } else {
-      // move
-      const br = S.boardRect, ps = S.pieceSize;
-      let nx = (px - br.left) - S.dragOX;
-      let ny = (py - br.top)  - S.dragOY;
-      nx = Math.max(0, Math.min(nx, S.boardSize - ps));
-      ny = Math.max(0, Math.min(ny, S.boardSize - ps));
-      S.dragPiece.el.style.left = nx + 'px';
-      S.dragPiece.el.style.top  = ny + 'px';
-    }
-  } else if (S.dragPiece) {
-    // release + count move
-    snapPiece(S.dragPiece);
-    S.dragPiece.el.classList.remove('held');
-    S.dragPiece.el.style.zIndex = 1;
-    S.dragPiece = null;
-    S.moves++;
-    document.getElementById('move-count').textContent = S.moves;
-    checkWin();
-  }
-}
-
-function getPieceAt(px, py) {
-  if (!S.boardRect) return null;
-  const bx = px - S.boardRect.left, by = py - S.boardRect.top;
-  for (let i = S.pieces.length-1; i >= 0; i--) {
-    const p = S.pieces[i];
-    const l = parseFloat(p.el.style.left), t = parseFloat(p.el.style.top), ps = S.pieceSize;
-    if (bx >= l && bx <= l+ps && by >= t && by <= t+ps) return p;
-  }
-  return null;
-}
-
-function snapPiece(piece) {
-  const ps = S.pieceSize, n = S.gridSize;
-  const nx = parseFloat(piece.el.style.left), ny = parseFloat(piece.el.style.top);
-  const sc = Math.max(0, Math.min(Math.round(nx/ps), n-1));
-  const sr = Math.max(0, Math.min(Math.round(ny/ps), n-1));
-
-  const occupant = S.pieces.find(p => p !== piece && p.curCol === sc && p.curRow === sr);
-  if (occupant) {
-    occupant.curCol = piece.curCol; occupant.curRow = piece.curRow;
-    occupant.el.style.left = (piece.curCol*ps)+'px';
-    occupant.el.style.top  = (piece.curRow*ps)+'px';
-    occupant.el.style.zIndex = 1;
-    markCorrect(occupant);
-  }
-  piece.curCol = sc; piece.curRow = sr;
-  piece.el.style.left = (sc*ps)+'px';
-  piece.el.style.top  = (sr*ps)+'px';
-  markCorrect(piece);
-}
-
-function markCorrect(p) {
-  if (p.curCol===p.origCol && p.curRow===p.origRow) p.el.classList.add('correct');
-  else p.el.classList.remove('correct');
-}
-
-function checkWin() {
-  if (S.pieces.every(p => p.curCol===p.origCol && p.curRow===p.origRow))
-    setTimeout(showVictory, 350);
-}
-
-// ══════════════════════════════════════════
-// AR DRAW
-// ══════════════════════════════════════════
-function drawAR() {
-  ctx.clearRect(0, 0, arCanvas.width, arCanvas.height);
-  for (const hand of S.hands) {
-    drawSkeleton(hand);
-    drawPinchCursor(hand);
-  }
-  if (S.phase === 'camera' && S.selActive) drawSelRect();
-}
-
-function drawSkeleton(hand) {
-  const lm = hand.lm;
-  ctx.lineWidth = 1.5;
-  for (const [a,b] of HAND_CONNS) {
-    const pa = mpToScreen(lm[a].x, lm[a].y);
-    const pb = mpToScreen(lm[b].x, lm[b].y);
-    ctx.strokeStyle = 'rgba(232,255,0,0.22)';
-    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
-  }
-  for (let i = 0; i < lm.length; i++) {
-    const p = mpToScreen(lm[i].x, lm[i].y);
-    const isTip = i===THUMB_TIP || i===INDEX_TIP;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, isTip ? 5 : 2.5, 0, Math.PI*2);
-    ctx.fillStyle = isTip ? 'rgba(232,255,0,.9)' : 'rgba(255,255,255,.3)';
-    ctx.fill();
-  }
-}
-
-function drawPinchCursor(hand) {
-  const { pinching, tip, thumb, index, pinchDist } = hand;
-
-  // line thumb ↔ index
-  ctx.beginPath();
-  ctx.moveTo(thumb.x, thumb.y); ctx.lineTo(index.x, index.y);
-  ctx.strokeStyle = pinching ? 'rgba(232,255,0,.85)' : 'rgba(255,255,255,.28)';
-  ctx.lineWidth = pinching ? 2.5 : 1.5;
-  ctx.setLineDash(pinching ? [] : [5,5]);
-  ctx.stroke(); ctx.setLineDash([]);
-
-  // outer ring
-  const r = pinching ? 16 : Math.max(10, 10 + (PINCH_ON - Math.min(pinchDist, PINCH_ON)) * 60);
-  ctx.beginPath(); ctx.arc(tip.x, tip.y, r, 0, Math.PI*2);
-  if (pinching) {
-    ctx.fillStyle = 'rgba(232,255,0,.15)'; ctx.fill();
-    ctx.strokeStyle = '#e8ff00';
-  } else {
-    ctx.strokeStyle = 'rgba(255,255,255,.45)';
-  }
-  ctx.lineWidth = 2; ctx.stroke();
-
-  // inner dot
-  ctx.beginPath(); ctx.arc(tip.x, tip.y, pinching ? 5 : 2.5, 0, Math.PI*2);
-  ctx.fillStyle = pinching ? '#e8ff00' : 'rgba(255,255,255,.55)';
-  ctx.fill();
-}
-
-function drawSelRect() {
-  const { selX:x, selY:y, selW:w, selH:h } = S;
-
-  // fill tint
-  ctx.fillStyle = 'rgba(232,255,0,.05)';
-  ctx.fillRect(x, y, w, h);
-
-  // dashed border
-  ctx.save();
-  ctx.strokeStyle = '#e8ff00'; ctx.lineWidth = 2;
-  ctx.setLineDash([9,6]);
-  ctx.shadowColor = 'rgba(232,255,0,.5)'; ctx.shadowBlur = 12;
-  ctx.strokeRect(x, y, w, h);
-  ctx.restore();
-
-  // corner Ls
-  const cl = 18;
-  ctx.strokeStyle = '#e8ff00'; ctx.lineWidth = 3; ctx.setLineDash([]);
-  for (const [cx,cy,dx,dy] of [[x,y,cl,cl],[x+w,y,-cl,cl],[x,y+h,cl,-cl],[x+w,y+h,-cl,-cl]]) {
-    ctx.beginPath(); ctx.moveTo(cx+dx, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy+dy); ctx.stroke();
-  }
-
-  // label
-  ctx.fillStyle = '#e8ff00';
-  ctx.font = '11px "DM Mono",monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${Math.round(w)} × ${Math.round(h)}`, x+w/2, y+h+22);
-  ctx.textAlign = 'left';
-}
-
-// ══════════════════════════════════════════
-// CAPTURE
-// ══════════════════════════════════════════
-function triggerCapture(x, y, w, h) {
-  S.capturing = true; S.selActive = false;
-  flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
-
-  setTimeout(() => {
-    const cap = document.createElement('canvas');
-    const vw = video.videoWidth, vh = video.videoHeight;
-    const sw = window.innerWidth, sh = window.innerHeight;
-    const vAR = vw/vh, sAR = sw/sh;
-    let rw, rh;
-    if (vAR > sAR) { rh=sh; rw=sh*vAR; } else { rw=sw; rh=sw/vAR; }
-    const ox=(rw-sw)/2, oy=(rh-sh)/2;
-
-    const scX = vw/rw, scY = vh/rh;
-    // x is mirrored in screen space: screen x → video x = sw - x
-    const mirX = sw - (x + w);
-    const sx = (mirX + ox) * scX;
-    const sy = (y  + oy)  * scY;
-    const sw2 = w * scX, sh2 = h * scY;
-    const side = Math.min(sw2, sh2);
-    const fsx = Math.max(0, sx + (sw2-side)/2);
-    const fsy = Math.max(0, sy + (sh2-side)/2);
-    const clamped = Math.min(side, vw-fsx, vh-fsy);
-
-    cap.width = clamped; cap.height = clamped;
-    const cctx = cap.getContext('2d');
-    // re-mirror so the captured image looks natural
-    cctx.save(); cctx.scale(-1,1);
-    cctx.drawImage(video, fsx, fsy, clamped, clamped, -clamped, 0, clamped, clamped);
-    cctx.restore();
-
-    S.capturedCanvas = cap;
-    S.capturing = false;
-    buildPuzzle(S.gridSize);
-  }, 80);
-}
-
-// ══════════════════════════════════════════
-// BUILD PUZZLE
-// ══════════════════════════════════════════
-function buildPuzzle(gridSize) {
-  S.phase = 'puzzle'; S.gridSize = gridSize; S.moves = 0;
-  S.pieces = []; S.dragPiece = null;
-  document.getElementById('move-count').textContent = '0';
-  document.getElementById('grid-label').textContent = `${gridSize} × ${gridSize}`;
-
-  puzzleScreen.style.display = 'flex';
-  instrEl.style.opacity = '0';
-  statusPill.textContent = `PUZZLE ${gridSize}×${gridSize}`; statusPill.className = 'active';
-  puzzleBoard.innerHTML = '';
-
-  const maxW = Math.min(window.innerWidth-32, window.innerHeight-220);
-  const bs = Math.floor(maxW/gridSize)*gridSize;
-  S.boardSize = bs; S.pieceSize = bs/gridSize;
-  puzzleBoard.style.width = bs+'px'; puzzleBoard.style.height = bs+'px';
-
-  // thumb
-  const thumb = document.getElementById('thumb-canvas');
-  thumb.width = 52; thumb.height = 52;
-  thumb.getContext('2d').drawImage(S.capturedCanvas, 0, 0, 52, 52);
-
-  const n = gridSize, ps = S.pieceSize;
-  const src = S.capturedCanvas, srcS = src.width, srcP = srcS/n;
-
-  // shuffle
-  const pos = [];
-  for (let r=0;r<n;r++) for (let c=0;c<n;c++) pos.push({col:c,row:r});
-  for (let i=pos.length-1;i>0;i--) {
-    const j=Math.floor(Math.random()*(i+1));
-    [pos[i],pos[j]]=[pos[j],pos[i]];
-  }
-  if (pos.every((p,i)=>p.col===i%n&&p.row===Math.floor(i/n))) [pos[0],pos[1]]=[pos[1],pos[0]];
-
-  for (let i=0;i<n*n;i++) {
-    const oc=i%n, or2=Math.floor(i/n), {col:cc,row:cr}=pos[i];
-    const pc=document.createElement('canvas');
-    pc.width=ps; pc.height=ps;
-    pc.getContext('2d').drawImage(src,oc*srcP,or2*srcP,srcP,srcP,0,0,ps,ps);
-    const el=document.createElement('div');
-    el.className='puzzle-piece';
-    el.style.cssText=`width:${ps}px;height:${ps}px;left:${cc*ps}px;top:${cr*ps}px;background-image:url(${pc.toDataURL()});background-size:100% 100%;`;
-    puzzleBoard.appendChild(el);
-    S.pieces.push({el,origCol:oc,origRow:or2,curCol:cc,curRow:cr});
-  }
-
-  retakeBtn.style.display='block';
-  retakeBtn.onclick=()=>{
-    S.phase='camera'; S.dragPiece=null;
-    puzzleScreen.style.display='none';
-    victoryEl.style.display='none';
-    retakeBtn.style.display='none';
-    instrEl.style.opacity='1';
-    statusPill.textContent='PRÊT'; statusPill.className='ready';
-  };
-  updateBoardRect();
-}
-
-function updateBoardRect() { S.boardRect = puzzleBoard.getBoundingClientRect(); }
-window.addEventListener('resize',()=>{ if(S.phase==='puzzle') updateBoardRect(); });
-
-// ══════════════════════════════════════════
-// VICTORY
-// ══════════════════════════════════════════
-function showVictory() {
-  S.phase='victory';
-  document.getElementById('final-moves').textContent=S.moves;
-  victoryEl.style.display='flex';
-
-  const btns=document.getElementById('vbtns');
-  btns.innerHTML='';
-  const ng=S.gridSize+1;
-
-  const mk=(label,cls,fn)=>{ const b=document.createElement('button'); b.className='vbtn'+(cls?' '+cls:''); b.textContent=label; b.onclick=fn; return b; };
-
-  btns.appendChild(mk('↩ Même zone','',()=>{ victoryEl.style.display='none'; buildPuzzle(S.gridSize); }));
-  btns.appendChild(mk(`${ng}×${ng} · Niveau +`,'primary',()=>{ victoryEl.style.display='none'; buildPuzzle(ng); }));
-  btns.appendChild(mk('📷 Nouvelle photo','',()=>{
-    victoryEl.style.display='none'; puzzleScreen.style.display='none'; retakeBtn.style.display='none';
-    S.phase='camera'; S.gridSize=3;
-    instrEl.style.opacity='1'; statusPill.textContent='PRÊT'; statusPill.className='ready';
-  }));
-}
-
-// ══════════════════════════════════════════
-// BOOT
-// ══════════════════════════════════════════
-(async () => {
-  const camOk = await startCamera();
-  if (!camOk) {
-    loadingEl.querySelector('p').textContent = 'Impossible d\'accéder à la caméra (HTTPS requis).';
-    return;
-  }
-
-  // Wait for MediaPipe scripts
-  let tries = 0;
-  while ((typeof Hands==='undefined' || typeof Camera==='undefined') && tries++ < 50)
-    await new Promise(r=>setTimeout(r,200));
-
-  if (typeof Hands==='undefined') {
-    loadingEl.querySelector('p').textContent = 'MediaPipe non chargé. Vérifie ta connexion internet.';
-    return;
-  }
-
-  initHands();
-
-  await new Promise(r=>setTimeout(r,1400));
-  loadingEl.style.transition='opacity .5s'; loadingEl.style.opacity='0';
-  setTimeout(()=>loadingEl.style.display='none', 500);
-
-  S.phase='camera';
-  statusPill.textContent='PRÊT'; statusPill.className='ready';
-})();
+const camera = new Camera(videoElement, {
+    onFrame: async () => {
+        canvasElement.width = window.innerWidth;
+        canvasElement.height = window.innerHeight;
+        await hands.send({image: videoElement});
+    },
+    width: 1280,
+    height: 720
+});
+camera.start();
 </script>
-
 </body>
 </html>
