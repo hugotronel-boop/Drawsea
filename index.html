@@ -1,122 +1,625 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piano Papier IA</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #video-container { position: relative; width: 100vw; height: 100vh; }
-        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        #gui { position: absolute; top: 10px; left: 10px; color: white; z-index: 10; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
-        .piano-overlay {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
-            display: flex; opacity: 0.3; pointer-events: none;
-        }
-        .key { flex: 1; border: 1px solid white; background: rgba(255,255,255,0.2); display: flex; align-items: flex-end; justify-content: center; color: white; padding-bottom: 10px; }
-        .key.active { background: rgba(0, 255, 0, 0.6); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>PROJ.PLAY</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Space Mono',monospace;color:#f0f0e8;touch-action:none;}
+button{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border:1px solid #2a2a40;background:#111118;color:#666680;padding:6px 12px;cursor:pointer;transition:all .12s;border-radius:2px;white-space:nowrap;}
+button:hover{border-color:#e8ff00;color:#e8ff00;}
+button.on{background:#e8ff00;color:#000;border-color:#e8ff00;}
+button.go{background:#ff3c6e;color:#fff;border-color:#ff3c6e;}
+button.go:hover{opacity:.85;}
+button.go.on{background:#fff;color:#000;border-color:#fff;}
+.sep{width:1px;height:24px;background:#2a2a40;margin:0 4px;flex-shrink:0;}
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#111118;border-bottom:1px solid #2a2a40;flex-shrink:0;flex-wrap:wrap;}
+.bttl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;margin-right:4px;}
+.bst{margin-left:auto;font-size:10px;color:#666680;letter-spacing:1px;}
+.cw{flex:1;position:relative;overflow:auto;display:flex;align-items:flex-start;justify-content:flex-start;background:#000;}
+.cw canvas{display:block;image-rendering:pixelated;cursor:crosshair;flex-shrink:0;}
+.ovl{display:none;position:absolute;inset:0;background:rgba(0,0,0,.75);align-items:center;justify-content:center;z-index:30;flex-direction:column;gap:16px;}
+.ovl.vis{display:flex;}
+.ovl h2{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:6px;color:#e8ff00;}
+.ovl p{color:#666680;font-size:12px;}
+.mc{display:none;position:fixed;bottom:0;left:0;right:0;height:120px;pointer-events:none;z-index:20;justify-content:space-between;align-items:flex-end;padding:0 16px 16px;}
+.mc.vis{display:flex;}
+.cb{width:56px;height:56px;border-radius:4px;background:rgba(232,255,0,.15);border:2px solid rgba(232,255,0,.4);font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-user-select:none;pointer-events:all;}
+.cb:active{background:rgba(232,255,0,.4);}
+.jb{width:72px;height:72px;border-radius:50%;background:rgba(255,60,110,.2);border:2px solid rgba(255,60,110,.6);font-size:22px;}
+.jb:active{background:rgba(255,60,110,.5);}
+.sc{display:none;flex-direction:column;width:100vw;height:100vh;}
+/* MENU */
+#sm{display:flex;background:#000;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.mbg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 20% 50%,rgba(232,255,0,.06),transparent 70%),radial-gradient(ellipse 50% 60% at 80% 50%,rgba(0,255,204,.05),transparent 70%);}
+.mbg::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,.012) 2px,rgba(255,255,255,.012) 4px);}
+.mcnt{position:relative;display:flex;flex-direction:column;align-items:center;gap:32px;padding:40px 24px;}
+.mlogo{font-family:'Bebas Neue',sans-serif;font-size:clamp(52px,10vw,96px);letter-spacing:8px;line-height:1;}
+.msub{font-size:12px;letter-spacing:4px;color:#666680;text-transform:uppercase;margin-top:-20px;}
+.mcds{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;}
+.mcd{width:220px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);padding:28px 24px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:12px;transition:all .2s;text-align:center;}
+.mcd:hover{border-color:#e8ff00;background:rgba(232,255,0,.04);transform:translateY(-3px);}
+.mcd .cl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:#fff;}
+.mcd .cd{font-size:11px;color:#666680;line-height:1.6;}
+.mcd .ca{font-size:18px;color:#e8ff00;opacity:0;transition:opacity .2s;}
+.mcd:hover .ca{opacity:1;}
+.mfsb{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;background:transparent;border:1px solid rgba(255,255,255,.1);color:#666680;padding:8px 16px;cursor:pointer;}
+.mfsb:hover{border-color:rgba(255,255,255,.3);color:#f0f0e8;}
+/* RACER hint */
+#rhint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;letter-spacing:2px;color:rgba(0,255,204,.25);pointer-events:none;text-transform:uppercase;}
+</style>
 </head>
 <body>
 
-<div id="gui">
-    <h3>Piano IA</h3>
-    <p>Placez le dessin du piano sous les zones éclairées.</p>
-    <button onclick="startAudio()">Activer le son</button>
+<!-- ══ MENU ══ -->
+
+<div id="sm">
+  <div class="mbg"></div>
+  <div class="mcnt">
+    <div class="mlogo"><span style="color:#e8ff00">PROJ</span><span style="color:#333">.</span><span style="color:#fff">PLAY</span></div>
+    <p class="msub">Projette. Crée. Joue.</p>
+    <div class="mcds">
+      <div class="mcd" onclick="go('sp')">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect x="0" y="44" width="64" height="8" fill="#e8ff00" opacity=".8"/>
+          <rect x="16" y="28" width="32" height="8" fill="#e8ff00" opacity=".5"/>
+          <rect x="4" y="36" width="20" height="8" fill="#e8ff00" opacity=".6"/>
+          <rect x="40" y="36" width="20" height="8" fill="#e8ff00" opacity=".6"/>
+          <rect x="10" y="20" width="10" height="14" fill="#ff3c6e"/>
+          <rect x="11" y="17" width="8" height="8" fill="#ffb3c6"/>
+        </svg>
+        <div class="cl">PLATFORMER</div>
+        <div class="cd">Construis un niveau<br>et fais courir ton perso</div>
+        <div class="ca">→</div>
+      </div>
+      <div class="mcd" onclick="go('sr')">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect x="8" y="8" width="48" height="48" rx="12" stroke="#00ffcc" stroke-width="4" fill="none" opacity=".5"/>
+          <rect x="18" y="18" width="28" height="28" rx="6" stroke="#00ffcc" stroke-width="3" fill="none" opacity=".3"/>
+          <rect x="26" y="5" width="12" height="7" rx="2" fill="#00ffcc"/>
+        </svg>
+        <div class="cl">RACER</div>
+        <div class="cd">Pose des points pour tracer<br>un circuit et pilote ta voiture</div>
+        <div class="ca">→</div>
+      </div>
+    </div>
+    <button class="mfsb" onclick="toggleFS()">⛶ Plein écran pour projection</button>
+  </div>
 </div>
 
-<div id="video-container">
-    <video id="input_video"></video>
-    <canvas id="output_canvas"></canvas>
-    <div class="piano-overlay" id="piano">
-        <div class="key" id="C4">DO</div>
-        <div class="key" id="D4">RE</div>
-        <div class="key" id="E4">MI</div>
-        <div class="key" id="F4">FA</div>
-        <div class="key" id="G4">SOL</div>
-        <div class="key" id="A4">LA</div>
-        <div class="key" id="B4">SI</div>
+<!-- ══ PLATFORMER ══ -->
+
+<div class="sc" id="sp">
+  <div class="bar">
+    <span class="bttl" style="color:#e8ff00">PROJ<span style="color:#444">.</span><span style="color:#fff">PLAT</span></span>
+    <button onclick="go('sm')">⌂</button>
+    <div class="sep"></div>
+    <div style="display:flex;gap:4px" id="petools">
+      <button id="pbt-block" class="on" onclick="pSetT('block')">⬛ Bloc</button>
+      <button id="pbt-erase" onclick="pSetT('erase')">✕ Effacer</button>
+      <button id="pbt-spawn" onclick="pSetT('spawn')">👤 Spawn</button>
+      <button id="pbt-goal"  onclick="pSetT('goal')">🏁 Arrivée</button>
     </div>
+    <div class="sep"></div>
+    <button onclick="pClear()">🗑</button>
+    <button onclick="pFloor()">▬ Sol</button>
+    <div class="sep"></div>
+    <button id="ppb" class="go" onclick="pToggle()">▶ JOUER</button>
+    <div class="sep"></div>
+    <button onclick="pZO()">−</button>
+    <span id="pzl" style="font-size:11px;color:#666680;min-width:36px;text-align:center">100%</span>
+    <button onclick="pZI()">+</button>
+    <button onclick="pZR()" style="font-size:10px">⊙</button>
+    <div class="sep"></div>
+    <button onclick="toggleFS()">⛶</button>
+    <span class="bst" id="pst">MODE: ÉDITEUR</span>
+  </div>
+  <div class="cw" id="pw">
+    <canvas id="pc"></canvas>
+    <div class="ovl" id="povl">
+      <h2 id="povl-t">TERMINÉ</h2>
+      <p id="povl-m">.</p>
+      <button onclick="pRestart()" class="go">↺ REJOUER</button>
+      <button onclick="pBackEd()">✎ ÉDITEUR</button>
+    </div>
+  </div>
+  <div class="mc" id="pmc">
+    <div style="display:flex;gap:4px">
+      <div class="cb" ontouchstart="pMob('left',true)" ontouchend="pMob('left',false)">◀</div>
+      <div class="cb" ontouchstart="pMob('right',true)" ontouchend="pMob('right',false)">▶</div>
+    </div>
+    <div class="cb jb" ontouchstart="pMob('jump',true)" ontouchend="pMob('jump',false)">↑</div>
+  </div>
+</div>
+
+<!-- ══ RACER ══ -->
+
+<div class="sc" id="sr">
+  <div class="bar">
+    <span class="bttl" style="color:#00ffcc">PROJ<span style="color:#444">.</span><span style="color:#fff">RACE</span></span>
+    <button onclick="go('sm')">⌂</button>
+    <div class="sep"></div>
+    <div style="display:flex;gap:4px" id="retools">
+      <button onclick="rUndo()">↩ Annuler</button>
+      <button onclick="rClear()">🗑 Vider</button>
+    </div>
+    <div class="sep"></div>
+    <button id="rpb" class="go" onclick="rToggle()">▶ PILOTER</button>
+    <div class="sep"></div>
+    <button onclick="toggleFS()">⛶</button>
+    <span class="bst" id="rst">MODE: ÉDITEUR</span>
+  </div>
+  <div class="cw" id="rw">
+    <canvas id="rc"></canvas>
+    <div id="rhint">Clique pour poser des points</div>
+  </div>
+  <div class="mc" id="rmc">
+    <div style="display:flex;gap:4px">
+      <div class="cb" ontouchstart="rk.left=true" ontouchend="rk.left=false">◀</div>
+      <div class="cb" ontouchstart="rk.right=true" ontouchend="rk.right=false">▶</div>
+    </div>
+    <div class="cb jb" ontouchstart="rk.gas=true" ontouchend="rk.gas=false">▲</div>
+  </div>
 </div>
 
 <script>
-const videoElement = document.getElementById('input_video');
-const canvasElement = document.getElementById('output_canvas');
-const canvasCtx = canvasElement.getContext('2d');
-const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+'use strict';
 
-let activeNotes = new Set();
+// ─── ROUTER ───
+function go(id) {
+  ['sm','sp','sr'].forEach(s => { document.getElementById(s).style.display='none'; });
+  document.getElementById(id).style.display='flex';
+  if(id==='sp') pInit();
+  if(id==='sr') rInit();
+  if(id==='sm') { pStop(); rStop(); }
+}
+function toggleFS() {
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
+window.addEventListener('resize', () => { pResize(); rResize(); });
+document.addEventListener('fullscreenchange', () => { pResize(); rResize(); });
 
-function startAudio() {
-    Tone.start();
-    document.getElementById('gui').style.display = 'none';
+// ════════════════════════════════════════════
+//  PLATFORMER
+// ════════════════════════════════════════════
+const PT = { TILE:32, COLS:40, ROWS:22, W:1280, H:704, G:0.55, JV:-13, SPD:4.5, MF:20 };
+const ZOOMS = [0.25,0.33,0.5,0.67,0.75,1,1.25,1.5,2,2.5,3,4];
+
+let pc, pctx;
+let pmode='editor', ptool='block', pzoom=1;
+let pgrid=[], pspawn={col:2,row:PT.ROWS-3}, pgoal={col:PT.COLS-3,row:PT.ROWS-3};
+let pplr=null, pcam={x:0};
+let pk={left:false,right:false,jump:false};
+let pdraw=false, pdv=1, plastc=null;
+let paf=null, ptick=0, pready=false;
+
+function pInit() {
+  pc=document.getElementById('pc'); pctx=pc.getContext('2d');
+  pc.width=PT.W; pc.height=PT.H;
+  if(!pready) {
+    pgrid=Array.from({length:PT.ROWS},()=>new Array(PT.COLS).fill(0));
+    pFloor();
+    pc.addEventListener('mousedown',  e=>{if(pmode!=='editor')return;pdraw=true;const c=pCell(e);pdv=(ptool==='block'&&pgrid[c.row]?.[c.col]===1)?0:1;plastc=null;pApply(c);});
+    pc.addEventListener('mousemove',  e=>{if(!pdraw||pmode!=='editor')return;const c=pCell(e);if(plastc&&c.col===plastc.col&&c.row===plastc.row)return;plastc=c;pApply(c);});
+    pc.addEventListener('mouseup',    ()=>pdraw=false);
+    pc.addEventListener('mouseleave', ()=>pdraw=false);
+    pc.addEventListener('touchstart', e=>{e.preventDefault();if(pmode!=='editor')return;pdraw=true;const c=pCell(e);pdv=(ptool==='block'&&pgrid[c.row]?.[c.col]===1)?0:1;plastc=null;pApply(c);},{passive:false});
+    pc.addEventListener('touchmove',  e=>{e.preventDefault();if(!pdraw||pmode!=='editor')return;const c=pCell(e);if(plastc&&c.col===plastc.col&&c.row===plastc.row)return;plastc=c;pApply(c);},{passive:false});
+    pc.addEventListener('touchend',   ()=>pdraw=false);
+    pready=true;
+  }
+  pBackEd();
 }
 
-function onResults(results) {
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+function pResize() {
+  if(!pc) return;
+  const w=document.getElementById('pw');
+  const s=Math.min((w.clientWidth||PT.W)/PT.W,(w.clientHeight||PT.H)/PT.H)*pzoom;
+  pc.style.width=Math.floor(PT.W*s)+'px'; pc.style.height=Math.floor(PT.H*s)+'px';
+}
+function pZI() { const i=ZOOMS.findIndex(z=>z>pzoom); if(i!==-1)pzoom=ZOOMS[i]; pUpdZ(); }
+function pZO() { const r=[...ZOOMS].reverse(),i=r.findIndex(z=>z<pzoom); if(i!==-1)pzoom=r[i]; pUpdZ(); }
+function pZR() { pzoom=1; pUpdZ(); }
+function pUpdZ() { document.getElementById('pzl').textContent=Math.round(pzoom*100)+'%'; pResize(); }
 
-    let currentFrameNotes = new Set();
+function pFloor() { for(let c=0;c<PT.COLS;c++) pgrid[PT.ROWS-1][c]=1; pDrawEd(); }
+function pClear() { pgrid=Array.from({length:PT.ROWS},()=>new Array(PT.COLS).fill(0)); pDrawEd(); }
+function pSetT(t) {
+  ptool=t;
+  ['block','erase','spawn','goal'].forEach(n=>document.getElementById('pbt-'+n)?.classList.toggle('on',n===t));
+}
+function pCell(e) {
+  const r=pc.getBoundingClientRect(),sx=PT.W/r.width,sy=PT.H/r.height;
+  const src=e.touches?e.touches[0]:e;
+  return {col:Math.floor((src.clientX-r.left)*sx/PT.TILE),row:Math.floor((src.clientY-r.top)*sy/PT.TILE)};
+}
+function pApply(c) {
+  const {col,row}=c;
+  if(col<0||col>=PT.COLS||row<0||row>=PT.ROWS) return;
+  if(ptool==='block')      {pgrid[row][col]=pdv; pDrawEd();}
+  else if(ptool==='erase') {pgrid[row][col]=0;   pDrawEd();}
+  else if(ptool==='spawn') {pspawn={col,row};      pDrawEd();}
+  else if(ptool==='goal')  {pgoal={col,row};        pDrawEd();}
+}
 
-    if (results.multiHandLandmarks) {
-        for (const landmarks of results.multiHandLandmarks) {
-            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 5});
-            
-            // On récupère l'index (point 8)
-            const indexFinger = landmarks[8];
-            const x = indexFinger.x * window.innerWidth;
-            const y = indexFinger.y * window.innerHeight;
+function pDrawEd() {
+  if(!pctx) return;
+  pctx.fillStyle='#0a0a0f'; pctx.fillRect(0,0,PT.W,PT.H);
+  pctx.strokeStyle='#1a1a2e'; pctx.lineWidth=1;
+  for(let c=0;c<=PT.COLS;c++){pctx.beginPath();pctx.moveTo(c*PT.TILE,0);pctx.lineTo(c*PT.TILE,PT.H);pctx.stroke();}
+  for(let r=0;r<=PT.ROWS;r++){pctx.beginPath();pctx.moveTo(0,r*PT.TILE);pctx.lineTo(PT.W,r*PT.TILE);pctx.stroke();}
+  for(let r=0;r<PT.ROWS;r++) for(let c=0;c<PT.COLS;c++) if(pgrid[r][c]) pBlk(c,r);
+  pMrk(pspawn.col,pspawn.row,'#00ffcc','S');
+  pMrk(pgoal.col,pgoal.row,'#ff6b00','G');
+}
+function pBlk(c,r) {
+  const x=c*PT.TILE,y=r*PT.TILE;
+  pctx.fillStyle='#e8ff00'; pctx.fillRect(x+1,y+1,PT.TILE-2,PT.TILE-2);
+  pctx.fillStyle='rgba(255,255,255,.15)'; pctx.fillRect(x+1,y+1,PT.TILE-2,4);
+  pctx.fillStyle='rgba(0,0,0,.25)'; pctx.fillRect(x+1,y+PT.TILE-5,PT.TILE-2,4);
+}
+function pMrk(c,r,col,lbl) {
+  pctx.save(); pctx.strokeStyle=col; pctx.lineWidth=2;
+  pctx.strokeRect(c*PT.TILE+2,r*PT.TILE+2,PT.TILE-4,PT.TILE-4);
+  pctx.fillStyle=col; pctx.font='bold 14px Space Mono';
+  pctx.textAlign='center'; pctx.textBaseline='middle';
+  pctx.fillText(lbl,c*PT.TILE+PT.TILE/2,r*PT.TILE+PT.TILE/2); pctx.restore();
+}
 
-            // Vérifier si le doigt est dans la zone du piano (30% bas de l'écran)
-            if (indexFinger.y > 0.7) {
-                const keyWidth = window.innerWidth / 7;
-                const keyIndex = Math.floor(x / keyWidth);
-                const notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4"];
-                
-                if (keyIndex >= 0 && keyIndex < 7) {
-                    const note = notes[keyIndex];
-                    currentFrameNotes.add(note);
-                }
-            }
-        }
+function pToggle() { pmode==='editor'?pStart():pBackEd(); }
+function pStart() {
+  const w=document.getElementById('pw'); w.style.height=w.offsetHeight+'px'; w.style.flexShrink='0';
+  pmode='play';
+  document.getElementById('petools').style.visibility='hidden';
+  document.getElementById('ppb').textContent='✎ ÉDITER'; document.getElementById('ppb').classList.add('on');
+  document.getElementById('pst').textContent='MODE: JEU';
+  document.getElementById('povl').classList.remove('vis');
+  if('ontouchstart' in window) document.getElementById('pmc').classList.add('vis');
+  pSpawn(); pStop(); paf=requestAnimationFrame(pLoop);
+}
+function pRestart() { document.getElementById('povl').classList.remove('vis'); pSpawn(); pStop(); paf=requestAnimationFrame(pLoop); }
+function pBackEd() {
+  pStop();
+  const w=document.getElementById('pw'); w.style.height=''; w.style.flexShrink='';
+  pmode='editor';
+  document.getElementById('petools').style.visibility='';
+  document.getElementById('ppb').textContent='▶ JOUER'; document.getElementById('ppb').classList.remove('on');
+  document.getElementById('pst').textContent='MODE: ÉDITEUR';
+  document.getElementById('povl').classList.remove('vis');
+  document.getElementById('pmc').classList.remove('vis');
+  pk={left:false,right:false,jump:false};
+  pResize(); pDrawEd();
+}
+function pStop() { if(paf){cancelAnimationFrame(paf);paf=null;} }
+
+function pSpawn() {
+  pplr={x:pspawn.col*PT.TILE+2,y:pspawn.row*PT.TILE-PT.TILE,w:PT.TILE-4,h:PT.TILE-2,
+        vx:0,vy:0,onGround:false,facing:1,frame:0,ft:0,coy:0,jbuf:0,dead:false};
+  pcam={x:0};
+}
+function ptAt(c,r) {
+  if(r<0||r>=PT.ROWS||c<0||c>=PT.COLS) return r>=PT.ROWS?1:0;
+  return pgrid[r][c];
+}
+function pRX(p) {
+  const l=Math.floor(p.x/PT.TILE),ri=Math.floor((p.x+p.w-1)/PT.TILE);
+  const t=Math.floor(p.y/PT.TILE),b=Math.floor((p.y+p.h-1)/PT.TILE);
+  if(p.vx>0){for(let r=t;r<=b;r++)if(ptAt(ri,r)){p.x=ri*PT.TILE-p.w;p.vx=0;break;}}
+  else if(p.vx<0){for(let r=t;r<=b;r++)if(ptAt(l,r)){p.x=(l+1)*PT.TILE;p.vx=0;break;}}
+}
+function pRY(p) {
+  const l=Math.floor(p.x/PT.TILE),ri=Math.floor((p.x+p.w-1)/PT.TILE);
+  const t=Math.floor(p.y/PT.TILE),b=Math.floor((p.y+p.h-1)/PT.TILE);
+  if(p.vy>0){for(let c=l;c<=ri;c++)if(ptAt(c,b)){p.y=b*PT.TILE-p.h;p.vy=0;p.onGround=true;break;}}
+  else if(p.vy<0){for(let c=l;c<=ri;c++)if(ptAt(c,t)){p.y=(t+1)*PT.TILE;p.vy=0;break;}}
+}
+function pUpd() {
+  const p=pplr; if(!p||p.dead) return;
+  p.ft++; if(p.coy>0)p.coy--; if(p.jbuf>0)p.jbuf--;
+  let ax=0; if(pk.left)ax=-1; if(pk.right)ax=1;
+  p.vx+=ax*1.2; p.vx*=0.75; p.vx=Math.max(-PT.SPD,Math.min(PT.SPD,p.vx));
+  if(ax)p.facing=ax;
+  if(pk.jump){p.jbuf=8;pk.jump=false;}
+  if(p.jbuf>0&&(p.onGround||p.coy>0)){p.vy=PT.JV;p.onGround=false;p.coy=0;p.jbuf=0;}
+  p.vy+=PT.G; if(p.vy>PT.MF)p.vy=PT.MF;
+  p.x+=p.vx; pRX(p);
+  const wg=p.onGround; p.onGround=false;
+  p.y+=p.vy; pRY(p);
+  if(wg&&!p.onGround)p.coy=8;
+  if(p.x<0){p.x=0;p.vx=0;}
+  if(p.y>PT.H+100){pDie();return;}
+  const gc=pgoal.col*PT.TILE,gr=pgoal.row*PT.TILE;
+  if(p.x+p.w>gc&&p.x<gc+PT.TILE&&p.y+p.h>gr&&p.y<gr+PT.TILE) pWin();
+  if(p.onGround&&Math.abs(p.vx)>.3){if(p.ft%8===0)p.frame=(p.frame+1)%4;}
+  else if(!p.onGround)p.frame=2; else p.frame=0;
+  const tx=p.x-PT.W/2+p.w/2;
+  pcam.x+=(tx-pcam.x)*.1; pcam.x=Math.max(0,Math.min(PT.COLS*PT.TILE-PT.W,pcam.x));
+}
+function pDie() {
+  pplr.dead=true;
+  setTimeout(()=>{document.getElementById('povl-t').textContent='MORT !';document.getElementById('povl-m').textContent='Tu es tombé.';document.getElementById('povl').classList.add('vis');},300);
+}
+function pWin() {
+  pplr.dead=true;
+  setTimeout(()=>{document.getElementById('povl-t').textContent='GAGNÉ !';document.getElementById('povl-m').textContent="Tu as atteint l'arrivée !";document.getElementById('povl').classList.add('vis');},200);
+}
+function pDrw() {
+  pctx.fillStyle='#000'; pctx.fillRect(0,0,PT.W,PT.H);
+  pctx.save(); pctx.translate(-Math.round(pcam.x),0);
+  const gx=pgoal.col*PT.TILE,gy=pgoal.row*PT.TILE;
+  pctx.fillStyle='#ff6b00'; pctx.fillRect(gx+PT.TILE/2-2,gy-PT.TILE*1.5,4,PT.TILE*2.5);
+  const wv=Math.sin(ptick*.12)*3;
+  pctx.beginPath(); pctx.moveTo(gx+PT.TILE/2+2,gy-PT.TILE*1.5);
+  pctx.lineTo(gx+PT.TILE/2+18+wv,gy-PT.TILE*1.2); pctx.lineTo(gx+PT.TILE/2+2,gy-PT.TILE*.9); pctx.fill();
+  if(pplr) pDrwP(pplr);
+  pctx.restore();
+}
+function pDrwP(p) {
+  const x=Math.round(p.x),y=Math.round(p.y),w=p.w,h=p.h;
+  pctx.save();
+  if(p.facing<0){pctx.translate((x+w/2)*2,0);pctx.scale(-1,1);}
+  if(p.dead)pctx.globalAlpha=.4;
+  const lp=Math.sin(p.frame*Math.PI/2);
+  pctx.fillStyle='#ff3c6e'; pctx.fillRect(x+2,y+h*.35,w-4,h*.65);
+  pctx.fillStyle='#ffb3c6'; pctx.fillRect(x+3,y,w-6,h*.42);
+  pctx.fillStyle='#0a0a0f'; pctx.fillRect(x+w-10,y+5,4,4);
+  pctx.fillStyle='#cc1144';
+  pctx.fillRect(x+3,y+h-h*.25+(p.onGround?lp*3:0),w/2-3,h*.25);
+  pctx.fillRect(x+w/2,y+h-h*.25+(p.onGround?-lp*3:0),w/2-3,h*.25);
+  pctx.fillStyle='#ff3c6e';
+  pctx.fillRect(x-2,y+h*.4+(p.onGround?lp*2:0),5,h*.25);
+  pctx.fillRect(x+w-3,y+h*.4+(p.onGround?-lp*2:0),5,h*.25);
+  pctx.shadowColor='#ff3c6e'; pctx.shadowBlur=12;
+  pctx.strokeStyle='#ff3c6e'; pctx.lineWidth=1; pctx.strokeRect(x,y,w,h);
+  pctx.restore();
+}
+function pLoop() {
+  if(pmode!=='play') return;
+  ptick++; pUpd(); pDrw(); paf=requestAnimationFrame(pLoop);
+}
+function pMob(a,d) {
+  if(a==='left')  pk.left=d;
+  if(a==='right') pk.right=d;
+  if(a==='jump'&&d){ if(pplr?.onGround||pplr?.coy>0)pk.jump=true; else if(pplr)pplr.jbuf=8; }
+  if(a==='jump'&&!d) pk.jump=false;
+}
+
+// ════════════════════════════════════════════
+//  RACER
+// ════════════════════════════════════════════
+const RC = {W:1280, H:704, RW:80, SNAP:30};
+
+let rcanv, rctx;
+let rmode='editor';
+let rpts=[];          // points posés [{x,y}]
+let rclosed=false;    // circuit fermé
+let rsmooth=[];       // courbe interpolée
+let rmouse=null;      // preview souris
+let raf=null, rtick=0;
+let rcar=null;
+let rk={left:false,right:false,gas:false,brake:false};
+let rready=false;
+
+function rInit() {
+  rcanv=document.getElementById('rc'); rctx=rcanv.getContext('2d');
+  rcanv.width=RC.W; rcanv.height=RC.H;
+  if(!rready) {
+    rcanv.addEventListener('click',     rClick);
+    rcanv.addEventListener('mousemove', e=>{if(rmode!=='editor'||rclosed)return;rmouse=rPos(e);rDrawEd();});
+    rcanv.addEventListener('mouseleave',()=>{rmouse=null;rDrawEd();});
+    rcanv.addEventListener('touchstart',e=>{e.preventDefault();rClick(e);},{passive:false});
+    rready=true;
+  }
+  rmode='editor'; rpts=[]; rclosed=false; rsmooth=[]; rmouse=null;
+  document.getElementById('retools').style.visibility='';
+  document.getElementById('rpb').textContent='▶ PILOTER'; document.getElementById('rpb').classList.remove('on');
+  document.getElementById('rst').textContent='MODE: ÉDITEUR';
+  document.getElementById('rhint').style.opacity='1';
+  document.getElementById('rw').style.height=''; document.getElementById('rw').style.flexShrink='';
+  rResize(); rDrawEd();
+}
+function rResize() {
+  if(!rcanv) return;
+  const w=document.getElementById('rw');
+  const s=Math.min((w.clientWidth||RC.W)/RC.W,(w.clientHeight||RC.H)/RC.H);
+  rcanv.style.width=Math.floor(RC.W*s)+'px'; rcanv.style.height=Math.floor(RC.H*s)+'px';
+}
+function rPos(e) {
+  const r=rcanv.getBoundingClientRect(),sx=RC.W/r.width,sy=RC.H/r.height;
+  const src=e.touches?e.touches[0]:e;
+  return {x:(src.clientX-r.left)*sx,y:(src.clientY-r.top)*sy};
+}
+function rNearA(p) {
+  return rpts.length>=3 && Math.hypot(p.x-rpts[0].x,p.y-rpts[0].y)<RC.SNAP;
+}
+function rClick(e) {
+  if(rmode!=='editor'||rclosed) return;
+  const p=rPos(e);
+  document.getElementById('rhint').style.opacity='0';
+  if(rNearA(p)) { rclosed=true; rBuild(); rDrawEd(); return; }
+  rpts.push(p); rBuild(); rDrawEd();
+}
+function rUndo() {
+  if(rclosed){rclosed=false;rBuild();rDrawEd();return;}
+  if(rpts.length>0){rpts.pop();rBuild();rDrawEd();}
+}
+function rClear() { rpts=[];rclosed=false;rsmooth=[];rmouse=null;document.getElementById('rhint').style.opacity='1';rDrawEd(); }
+
+// Catmull-Rom spline
+function rBuild() {
+  if(rpts.length<2){rsmooth=[];return;}
+  const pts=rpts, n=pts.length, steps=16;
+  const out=[];
+  const loop=rclosed?n:n-1;
+  for(let i=0;i<loop;i++){
+    const p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
+    for(let s=0;s<steps;s++){
+      const t=s/steps,t2=t*t,t3=t2*t;
+      out.push({
+        x:.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y:.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
+      });
     }
-
-    // Gestion du son pour éviter les répétitions en boucle
-    const notesToPlay = [...currentFrameNotes].filter(n => !activeNotes.has(n));
-    const notesToStop = [...activeNotes].filter(n => !currentFrameNotes.has(n));
-
-    notesToPlay.forEach(n => {
-        synth.triggerAttack(n);
-        document.getElementById(n).classList.add('active');
-    });
-    notesToStop.forEach(n => {
-        synth.triggerRelease(n);
-        document.getElementById(n).classList.remove('active');
-    });
-
-    activeNotes = currentFrameNotes;
-    canvasCtx.restore();
+  }
+  if(rclosed) out.push({...out[0]});
+  rsmooth=out;
 }
 
-const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-hands.onResults(onResults);
+function rRoad(ctx,pts,play) {
+  if(pts.length<2) return;
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle=play?'#181818':'#252525'; ctx.lineWidth=RC.RW*2+8;
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke();
+  ctx.strokeStyle=play?'rgba(255,255,255,.6)':'rgba(255,255,255,.2)'; ctx.lineWidth=4; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke();
+  ctx.strokeStyle=play?'#e8ff00':'rgba(232,255,0,.3)'; ctx.lineWidth=3; ctx.setLineDash([20,15]);
+  ctx.lineDashOffset=play?-(rtick*3):0;
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke();
+  ctx.setLineDash([]); ctx.restore();
+  // ligne départ
+  if(pts.length>2){
+    const p0=pts[0],p1=pts[1],ang=Math.atan2(p1.y-p0.y,p1.x-p0.x)+Math.PI/2;
+    ctx.save(); ctx.translate(p0.x,p0.y); ctx.rotate(ang);
+    const hw=RC.RW+4,sq=8,nc=Math.ceil(hw*2/sq);
+    for(let ci=0;ci<nc;ci++){ctx.fillStyle=ci%2===0?'#fff':'#000';ctx.fillRect(-hw+ci*sq,-5,sq,10);}
+    ctx.restore();
+  }
+}
 
-const camera = new Camera(videoElement, {
-    onFrame: async () => {
-        canvasElement.width = window.innerWidth;
-        canvasElement.height = window.innerHeight;
-        await hands.send({image: videoElement});
-    },
-    width: 1280,
-    height: 720
+function rDrawEd() {
+  if(!rctx) return;
+  rctx.fillStyle='#0a0a0f'; rctx.fillRect(0,0,RC.W,RC.H);
+  rctx.strokeStyle='#111120'; rctx.lineWidth=1;
+  for(let x=0;x<=RC.W;x+=32){rctx.beginPath();rctx.moveTo(x,0);rctx.lineTo(x,RC.H);rctx.stroke();}
+  for(let y=0;y<=RC.H;y+=32){rctx.beginPath();rctx.moveTo(0,y);rctx.lineTo(RC.W,y);rctx.stroke();}
+  if(rsmooth.length>1) rRoad(rctx,rsmooth,false);
+  // preview vers souris
+  if(!rclosed&&rpts.length>0&&rmouse){
+    const last=rpts[rpts.length-1], near=rNearA(rmouse);
+    rctx.save();
+    rctx.strokeStyle=near?'rgba(0,255,204,.9)':'rgba(0,255,204,.4)';
+    rctx.lineWidth=near?3:2; rctx.setLineDash([8,6]);
+    rctx.beginPath(); rctx.moveTo(last.x,last.y); rctx.lineTo(rmouse.x,rmouse.y); rctx.stroke();
+    rctx.setLineDash([]); rctx.restore();
+  }
+  // points
+  rpts.forEach((p,i)=>{
+    const isA=i===0;
+    rctx.save();
+    if(isA&&rmouse&&rNearA(rmouse)&&!rclosed){
+      rctx.beginPath(); rctx.arc(p.x,p.y,RC.SNAP,0,Math.PI*2);
+      rctx.strokeStyle='rgba(0,255,204,.35)'; rctx.lineWidth=2; rctx.stroke();
+    }
+    rctx.beginPath(); rctx.arc(p.x,p.y,isA?10:6,0,Math.PI*2);
+    rctx.fillStyle=isA?'#00ffcc':'rgba(0,255,204,.8)'; rctx.fill();
+    if(isA){rctx.font='bold 11px Space Mono';rctx.fillStyle='#000';rctx.textAlign='center';rctx.textBaseline='middle';rctx.fillText('A',p.x,p.y);}
+    rctx.restore();
+  });
+  // status
+  rctx.font='12px Space Mono'; rctx.textAlign='left';
+  if(rclosed){rctx.fillStyle='rgba(0,255,100,.8)';rctx.fillText('✓ Circuit fermé — prêt à piloter',14,RC.H-12);}
+  else if(rpts.length>=3){rctx.fillStyle='rgba(0,200,255,.6)';rctx.fillText(rpts.length+' points — clique sur A pour fermer',14,RC.H-12);}
+  else if(rpts.length>0){rctx.fillStyle='rgba(255,150,0,.7)';rctx.fillText(rpts.length+' point'+(rpts.length>1?'s':'')+' — continue à placer des points',14,RC.H-12);}
+}
+
+function rDrawGame() {
+  rctx.fillStyle='#000'; rctx.fillRect(0,0,RC.W,RC.H);
+  if(rsmooth.length>1) rRoad(rctx,rsmooth,true);
+  if(rcar){
+    const c=rcar;
+    rctx.save(); rctx.translate(c.x,c.y); rctx.rotate(c.angle);
+    rctx.fillStyle='#00ffcc'; rctx.fillRect(-9,-15,18,30);
+    rctx.fillStyle='rgba(0,0,0,.5)'; rctx.fillRect(-6,-9,12,12);
+    rctx.fillStyle='#333';
+    rctx.fillRect(-13,-13,4,8); rctx.fillRect(9,-13,4,8);
+    rctx.fillRect(-13,5,4,8); rctx.fillRect(9,5,4,8);
+    rctx.shadowColor='#00ffcc'; rctx.shadowBlur=16;
+    rctx.strokeStyle='#00ffcc'; rctx.lineWidth=1.5; rctx.strokeRect(-9,-15,18,30);
+    rctx.restore();
+  }
+}
+
+function rOnRoad(x,y) {
+  for(let i=0;i<rsmooth.length-1;i++){
+    const ax=rsmooth[i].x,ay=rsmooth[i].y,bx=rsmooth[i+1].x,by=rsmooth[i+1].y;
+    const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+    if(!l2) continue;
+    const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l2));
+    if(Math.hypot(x-(ax+t*dx),y-(ay+t*dy))<RC.RW+4) return true;
+  }
+  return false;
+}
+function rUpdCar() {
+  if(!rcar) return; rtick++;
+  if(rk.gas)   rcar.speed+=0.18;
+  if(rk.brake) rcar.speed-=0.35;
+  rcar.speed*=0.97; rcar.speed=Math.max(-2,Math.min(7,rcar.speed));
+  const st=0.045*(Math.abs(rcar.speed)/7+0.3);
+  if(rk.left)  rcar.angle-=st;
+  if(rk.right) rcar.angle+=st;
+  rcar.x+=Math.cos(rcar.angle)*rcar.speed;
+  rcar.y+=Math.sin(rcar.angle)*rcar.speed;
+  if(!rOnRoad(rcar.x,rcar.y)) rcar.speed*=0.88;
+}
+function rLoop() { if(rmode!=='race')return; rUpdCar(); rDrawGame(); raf=requestAnimationFrame(rLoop); }
+function rStop() { if(raf){cancelAnimationFrame(raf);raf=null;} rk={left:false,right:false,gas:false,brake:false}; }
+
+function rToggle() {
+  if(rmode==='editor'){
+    if(!rclosed){alert('Ferme le circuit en cliquant sur le point A !');return;}
+    const w=document.getElementById('rw'); w.style.height=w.offsetHeight+'px'; w.style.flexShrink='0';
+    rmode='race';
+    document.getElementById('retools').style.visibility='hidden';
+    document.getElementById('rpb').textContent='✎ ÉDITER'; document.getElementById('rpb').classList.add('on');
+    document.getElementById('rst').textContent='MODE: COURSE';
+    if('ontouchstart' in window) document.getElementById('rmc').classList.add('vis');
+    const p0=rsmooth[0],p1=rsmooth[Math.min(3,rsmooth.length-1)];
+    rcar={x:p0.x,y:p0.y,angle:Math.atan2(p1.y-p0.y,p1.x-p0.x),speed:0};
+    rtick=0; rStop(); raf=requestAnimationFrame(rLoop);
+  } else {
+    rStop();
+    const w=document.getElementById('rw'); w.style.height=''; w.style.flexShrink='';
+    rmode='editor';
+    document.getElementById('retools').style.visibility='';
+    document.getElementById('rpb').textContent='▶ PILOTER'; document.getElementById('rpb').classList.remove('on');
+    document.getElementById('rst').textContent='MODE: ÉDITEUR';
+    document.getElementById('rmc').classList.remove('vis');
+    rDrawEd();
+  }
+}
+
+// ─── KEYBOARD ───
+window.addEventListener('keydown', e => {
+  if(pmode==='play'){
+    if(e.code==='ArrowLeft'||e.code==='KeyA')  pk.left=true;
+    if(e.code==='ArrowRight'||e.code==='KeyD') pk.right=true;
+    if(e.code==='ArrowUp'||e.code==='Space'||e.code==='KeyW'){
+      e.preventDefault();
+      if(pplr?.onGround||pplr?.coy>0) pk.jump=true;
+      else if(pplr) pplr.jbuf=8;
+    }
+  }
+  if(rmode==='race'){
+    if(e.code==='ArrowLeft'||e.code==='KeyA')  rk.left=true;
+    if(e.code==='ArrowRight'||e.code==='KeyD') rk.right=true;
+    if(e.code==='ArrowUp'||e.code==='KeyW'){e.preventDefault();rk.gas=true;}
+    if(e.code==='ArrowDown'||e.code==='KeyS')  rk.brake=true;
+  }
 });
-camera.start();
+window.addEventListener('keyup', e => {
+  if(e.code==='ArrowLeft'||e.code==='KeyA')   {pk.left=false; rk.left=false;}
+  if(e.code==='ArrowRight'||e.code==='KeyD')  {pk.right=false;rk.right=false;}
+  if(e.code==='ArrowUp'||e.code==='Space'||e.code==='KeyW'){pk.jump=false;rk.gas=false;}
+  if(e.code==='ArrowDown'||e.code==='KeyS')   rk.brake=false;
+});
 </script>
+
 </body>
 </html>
