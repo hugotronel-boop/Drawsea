@@ -4,6 +4,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noarchive">
+<style>article,aside,details,figcaption,figure,footer,header,hgroup,main,mark,menu,nav,section,summary{display:block}</style>
 <title>Le Brouillon Tattoo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,14 +29,22 @@
 
 - { margin:0; padding:0; box-sizing:border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+scroll-behavior: smooth;
+background: #0a0805;
+background-color: #0a0805;
+}
 
 body {
+background: #0a0805;
+background-color: #0a0805;
+color: #f0ebe0;
 background: var(–ink);
 color: var(–paper);
 font-family: ‘Space Mono’, ‘Courier New’, Courier, monospace;
 overflow-x: hidden;
 cursor: none;
+-webkit-text-size-adjust: 100%;
 }
 
 /* Custom cursor */
@@ -67,6 +79,8 @@ justify-content: flex-end;
 padding: 0 clamp(20px, 6vw, 80px) clamp(40px, 8vw, 80px);
 position: relative;
 overflow: hidden;
+background: #0a0805;
+background-color: #0a0805;
 background: var(–ink);
 }
 
@@ -153,7 +167,10 @@ background: linear-gradient(90deg, var(–accent), transparent);
 
 .hero-cta {
 display: inline-block;
+background: #c8360a;
+background-color: #c8360a;
 background: var(–accent);
+color: #faf7f0;
 color: var(–cream);
 text-decoration: none;
 font-family: ‘Space Mono’, monospace;
@@ -268,6 +285,8 @@ display: grid;
 grid-template-columns: 1fr 1fr;
 gap: clamp(40px, 8vw, 100px);
 align-items: center;
+background: #0a0805;
+background-color: #0a0805;
 background: var(–ink);
 position: relative;
 }
@@ -346,6 +365,8 @@ margin-top: 6px;
 /* ── STYLES ── */
 #styles {
 padding: clamp(80px, 12vw, 140px) clamp(20px, 6vw, 80px);
+background: #0f0c08;
+background-color: #0f0c08;
 background: linear-gradient(180deg, var(–ink) 0%, #0f0c08 100%);
 }
 
@@ -442,7 +463,10 @@ pointer-events: none;
 /* ── PORTFOLIO ── */
 #portfolio {
 padding: clamp(80px, 12vw, 140px) clamp(20px, 6vw, 80px);
+background: #f0ebe0;
+background-color: #f0ebe0;
 background: var(–paper);
+color: #0a0805;
 color: var(–ink);
 }
 #portfolio .section-tag { color: var(–accent); }
@@ -547,6 +571,8 @@ color: rgba(240,235,224,0.2);
 /* ── DATES / AGENDA ── */
 #agenda {
 padding: clamp(80px, 12vw, 140px) clamp(20px, 6vw, 80px);
+background: #0a0805;
+background-color: #0a0805;
 background: var(–ink);
 }
 
@@ -668,7 +694,10 @@ background: var(–accent);
 /* ── RDV ── */
 #rdv {
 padding: clamp(80px, 12vw, 140px) clamp(20px, 6vw, 80px);
+background: #f0ebe0;
+background-color: #f0ebe0;
 background: var(–paper);
+color: #0a0805;
 color: var(–ink);
 position: relative;
 overflow: hidden;
@@ -755,8 +784,11 @@ width: 28px;
 
 /* Form */
 .rdv-form {
+background: #0a0805;
+background-color: #0a0805;
 background: var(–ink);
 padding: clamp(30px, 5vw, 50px);
+color: #f0ebe0;
 color: var(–paper);
 position: relative;
 }
@@ -876,6 +908,7 @@ font-style: italic;
 /* ── FOOTER ── */
 footer {
 background: #040302;
+background-color: #040302;
 padding: clamp(50px, 8vw, 80px) clamp(20px, 6vw, 80px) 30px;
 border-top: 1px solid rgba(240,235,224,0.06);
 }
@@ -1099,11 +1132,11 @@ transition: all 0.4s;
     </div>
     <a href="#rdv" class="hero-cta">Prendre rendez-vous</a>
   </div>
-</section>
+</div>
 
 <!-- ── À PROPOS ── -->
 
-<section id="about">
+<div id="about">
   <div class="about-img-wrapper reveal">
     <div class="about-img-bg"></div>
     <div class="about-img-placeholder">
@@ -1143,11 +1176,11 @@ transition: all 0.4s;
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── STYLES ── -->
 
-<section id="styles">
+<div id="styles">
   <div class="styles-header">
     <div>
       <div class="section-tag reveal">Spécialités</div>
@@ -1196,11 +1229,11 @@ transition: all 0.4s;
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── PORTFOLIO ── -->
 
-<section id="portfolio">
+<div id="portfolio">
   <div class="portfolio-header">
     <div>
       <div class="section-tag reveal">Portfolio</div>
@@ -1260,11 +1293,11 @@ transition: all 0.4s;
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── AGENDA ── -->
 
-<section id="agenda">
+<div id="agenda">
   <div class="section-tag reveal">Agenda</div>
   <h2 class="section-title reveal reveal-delay-1">Où me trouver</h2>
   <div class="agenda-grid">
@@ -1347,11 +1380,11 @@ transition: all 0.4s;
       </div>
     </div>
   </div>
-</section>
+</div>
 
 <!-- ── RENDEZ-VOUS ── -->
 
-<section id="rdv">
+<div id="rdv">
   <div class="rdv-grid">
     <div class="rdv-info">
       <div class="section-tag reveal">Contact</div>
@@ -1495,7 +1528,7 @@ transition: all 0.4s;
 ```
 
   </div>
-</section>
+</div>
 
 <!-- ── FOOTER ── -->
 
