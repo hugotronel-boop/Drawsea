@@ -577,7 +577,7 @@ margin-top:10px;
   const facingBtn = document.getElementById('facingBtn');
   const facingLabel = document.getElementById('facingLabel');
   facingBtn.addEventListener('click', ()=>{
-    facing = facing = 'environment' ? 'user' : 'environment';
+    facing = facing == 'environment' ? 'user' : 'environment';
     facingLabel.textContent = facing = 'environment' ? 'Caméra arrière' : 'Caméra frontale';
   });
 
@@ -605,7 +605,7 @@ margin-top:10px;
     const recordVideo = document.getElementById('recordVideo');
     recordVideo.srcObject = stream;
 
-    const mirrored = facing = 'user';
+    const mirrored = facing == 'user';
     previewVideo.classList.toggle('mirrored', mirrored);
     recordVideo.classList.toggle('mirrored', mirrored);
 
@@ -629,7 +629,7 @@ margin-top:10px;
       n -= 1;
       countNum.textContent = n > 0 ? n : '🎬';
       ringFg.setAttribute('stroke-dashoffset', circumference * (1 - n/total));
-      if(n = 3) countMsg.textContent = 'Prêts… on filme bientôt !';
+      if(n === 3) countMsg.textContent = 'Prêts… on filme bientôt !';
       if(n <= 0){
         clearInterval(countdownTimer);
         beginRecording();
@@ -651,12 +651,10 @@ margin-top:10px;
     const audioTracks = stream.getAudioTracks();
     const recordStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
 
-    const mimeCandidates = [
-      'video/mp4',
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm'
-    ];
+const mimeCandidates = [
+  'video/webm;codecs=vp8,opus',
+  'video/webm'
+];
     let mimeType = '';
     for(const m of mimeCandidates){
       if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)){
