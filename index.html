@@ -188,6 +188,7 @@
     object-fit:cover;
     background:#111;
   }
+  video.mirrored{ transform:scaleX(-1); }
   .scrim-top{
     position:absolute;top:0;left:0;right:0;
     height:160px;
@@ -589,7 +590,7 @@
     loader.textContent = 'Ouverture de la caméra…';
     try{
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width:{ideal:1080}, height:{ideal:1920} },
+        video: { facingMode: { ideal: facing } },
         audio: true
       });
     }catch(err){
@@ -603,6 +604,10 @@
     previewVideo.srcObject = stream;
     const recordVideo = document.getElementById('recordVideo');
     recordVideo.srcObject = stream;
+
+    const mirrored = facing === 'user';
+    previewVideo.classList.toggle('mirrored', mirrored);
+    recordVideo.classList.toggle('mirrored', mirrored);
 
     show('countdown');
     runCountdown();
@@ -638,11 +643,15 @@
 
     const recordVideo = document.getElementById('recordVideo');
     const canvas = document.getElementById('recCanvas');
-    const vw = recordVideo.videoWidth || 1080;
-    const vh = recordVideo.videoHeight || 1920;
-    canvas.width = vw;
-    canvas.height = vh;
-    recCtx = canvas.getContext('2d');
+    const nativeW = recordVideo.videoWidth || 1080;
+    const nativeH = recordVideo.videoHeight || 1920;
+    // on limite la résolution d'enregistrement pour éviter les saccades sur mobile
+    const maxDim = 900;
+    const scale = Math.min(1, maxDim / Math.max(nativeW, nativeH));
+    canvas.width = Math.round(nativeW * scale);
+    canvas.height = Math.round(nativeH * scale);
+    recCtx = canvas.getContext('2d', { alpha: false });
+    initOverlayCache(canvas.width, canvas.height);
 
     const canvasStream = canvas.captureStream(30);
     const audioTracks = stream.getAudioTracks();
@@ -678,18 +687,29 @@
     startPrompts();
   }
 
-  function drawLoop(){
-    if(!recActive) return;
-    const recordVideo = document.getElementById('recordVideo');
-    const canvas = document.getElementById('recCanvas');
-    if(recCtx && recordVideo.videoWidth){
-      recCtx.drawImage(recordVideo, 0, 0, canvas.width, canvas.height);
-      drawOverlay(recCtx, canvas.width, canvas.height);
-    }
-    recAnimFrame = requestAnimationFrame(drawLoop);
+  let bottomGrad = null;
+  let topGrad = null;
+  let cachedQLines = [];
+
+  function initOverlayCache(w, h){
+    bottomGrad = recCtx.createLinearGradient(0, h - h*0.30, 0, h);
+    bottomGrad.addColorStop(0, 'rgba(20,15,12,0)');
+    bottomGrad.addColorStop(1, 'rgba(20,15,12,0.78)');
+    topGrad = recCtx.createLinearGradient(0, 0, 0, h * 0.14);
+    topGrad.addColorStop(0, 'rgba(20,15,12,0.55)');
+    topGrad.addColorStop(1, 'rgba(20,15,12,0)');
   }
 
-  function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight){
+  function computeQLines(idx){
+    if(!recCtx) return [];
+    const canvas = document.getElementById('recCanvas');
+    const w = canvas.width;
+    const pad = w * 0.06;
+    recCtx.font = `500 ${Math.round(w*0.05)}px 'Fraunces', serif`;
+    return getWrappedLines(recCtx, PROMPTS[idx], w - pad*2);
+  }
+
+  function getWrappedLines(ctx, text, maxWidth){
     const words = text.split(' ');
     let line = '';
     const lines = [];
@@ -703,8 +723,18 @@
       }
     }
     if(line) lines.push(line);
-    lines.forEach((l, i)=> ctx.fillText(l, x, y + i * lineHeight));
-    return lines.length;
+    return lines;
+  }
+
+  function drawLoop(){
+    if(!recActive) return;
+    const recordVideo = document.getElementById('recordVideo');
+    const canvas = document.getElementById('recCanvas');
+    if(recCtx && recordVideo.videoWidth){
+      recCtx.drawImage(recordVideo, 0, 0, canvas.width, canvas.height);
+      drawOverlay(recCtx, canvas.width, canvas.height);
+    }
+    recAnimFrame = requestAnimationFrame(drawLoop);
   }
 
   function drawOverlay(ctx, w, h){
