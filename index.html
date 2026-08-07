@@ -297,11 +297,37 @@
     text-align:center;
     border:1px solid var(--gold);
     border-radius:10px;
-    padding:8px 0;
+    padding:10px 0;
     font-family:'Fraunces',serif;
-    font-size:15px;
+    font-size:16px;
     color:var(--bordeaux);
+    background:transparent;
+    cursor:pointer;
+    transition:all .2s ease;
   }
+  .scale-num:active{transform:scale(.94);}
+  .scale-num.selected{
+    background:var(--bordeaux);
+    border-color:var(--bordeaux);
+    color:var(--paper);
+  }
+  .scale-row.answered .scale-num{pointer-events:none;}
+  .scale-row.answered .scale-num:not(.selected){
+    opacity:.35;
+  }
+  .feedback-msg{
+    height:16px;
+    margin-top:10px;
+    text-align:center;
+    font-size:12.5px;
+    font-style:italic;
+    color:var(--ok);
+    opacity:0;
+    transition:opacity .3s ease;
+  }
+  .feedback-msg.show{opacity:1;}
+  .prompt-card.closing{text-align:center;}
+  .prompt-card.closing .prompt-q{font-style:italic;}
   .progress-dots{
     display:flex;gap:5px;justify-content:center;margin-top:16px;
   }
@@ -331,6 +357,40 @@
   }
   .result-title{font-size:24px;color:var(--ink);}
   .result-sub{font-size:13.5px;color:#7a6e62;margin-top:6px;line-height:1.5;}
+  .recap{
+    margin-top:16px;
+    max-height:26vh;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    padding-right:2px;
+  }
+  .recap-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:9px 4px;
+    border-bottom:1px solid rgba(108,42,58,.1);
+  }
+  .recap-q{font-size:13px;color:var(--ink);line-height:1.35;}
+  .recap-score{
+    flex:0 0 auto;
+    min-width:28px;
+    height:28px;
+    border-radius:50%;
+    background:var(--bordeaux);
+    color:var(--paper);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fraunces',serif;
+    font-size:13px;
+  }
+  .recap-score.empty{
+    background:transparent;
+    border:1px dashed var(--gold);
+    color:var(--gold);
+  }
   .result-actions{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
 
   .loader{
@@ -415,11 +475,16 @@
     </div>
     <div class="rec-bottom">
       <div class="prompt-card" id="promptCard">
-        <div class="prompt-eyebrow">Question <span id="qIndex">1</span>/<span id="qTotal">10</span></div>
+        <div class="prompt-eyebrow" id="promptEyebrow">Question <span id="qIndex">1</span>/<span id="qTotal">10</span></div>
         <div class="prompt-q" id="promptText">Notez la tenue de la mariée</div>
-        <div class="scale-row">
-          <div class="scale-num">1</div><div class="scale-num">2</div><div class="scale-num">3</div><div class="scale-num">4</div><div class="scale-num">5</div>
+        <div class="scale-row" id="scaleRow">
+          <button class="scale-num" data-val="1">1</button>
+          <button class="scale-num" data-val="2">2</button>
+          <button class="scale-num" data-val="3">3</button>
+          <button class="scale-num" data-val="4">4</button>
+          <button class="scale-num" data-val="5">5</button>
         </div>
+        <div class="feedback-msg" id="feedbackMsg">Note enregistrée ✓</div>
       </div>
       <div class="progress-dots" id="progressDots"></div>
     </div>
@@ -433,6 +498,7 @@
         <div class="eyebrow">Enregistrement terminé</div>
         <div class="result-title">Merci pour ce joli moment</div>
         <p class="result-sub">Téléchargez la vidéo pour la garder précieusement, ou relancez un nouvel enregistrement pour le prochain groupe d'invités.</p>
+        <div class="recap" id="recap"></div>
       </div>
       <div class="result-actions">
         <a class="cta" id="downloadBtn" download="mariage-charline-hugo.webm" style="text-align:center;text-decoration:none;">Télécharger la vidéo</a>
@@ -481,6 +547,10 @@
   let recordTimer = null;
   let promptTimer = null;
   let countdownTimer = null;
+  let questionFallback = null;
+  let advanceDelay = null;
+  let currentIdx = 0;
+  let scores = [];
 
   // ---- duration chips ----
   document.getElementById('durationChips').addEventListener('click', e=>{
@@ -597,47 +667,112 @@
     }, 1000);
   }
 
+  let dots = null;
+  let maxQuestionMs = 0;
+
   function startPrompts(){
     const qTotal = document.getElementById('qTotal');
     qTotal.textContent = PROMPTS.length;
     const dotsWrap = document.getElementById('progressDots');
     dotsWrap.innerHTML = PROMPTS.map(()=>'<i></i>').join('');
-    const dots = dotsWrap.querySelectorAll('i');
+    dots = dotsWrap.querySelectorAll('i');
 
-    let idx = 0;
-    const interval = Math.max(duration / PROMPTS.length, 5) * 1000;
-    setPrompt(idx, dots);
+    scores = new Array(PROMPTS.length).fill(null);
+    currentIdx = 0;
+    // le temps max avant passage automatique si personne ne répond
+    maxQuestionMs = Math.max((duration / PROMPTS.length) * 1000, 12000);
 
-    promptTimer = setInterval(()=>{
-      idx += 1;
-      if(idx >= PROMPTS.length){
-        clearInterval(promptTimer);
-        return;
-      }
-      setPrompt(idx, dots);
-    }, interval);
+    document.getElementById('promptCard').classList.remove('closing');
+    document.getElementById('scaleRow').style.display = 'flex';
+    document.getElementById('scaleRow').onclick = onScoreTap;
+    setPrompt(currentIdx);
   }
 
-  function setPrompt(idx, dots){
+  function onScoreTap(e){
+    const btn = e.target.closest('.scale-num');
+    if(!btn) return;
+    const scaleRow = document.getElementById('scaleRow');
+    if(scaleRow.classList.contains('answered')) return;
+
+    const val = parseInt(btn.dataset.val, 10);
+    scores[currentIdx] = val;
+    btn.classList.add('selected');
+    scaleRow.classList.add('answered');
+    dots[currentIdx].classList.add('done');
+
+    const feedback = document.getElementById('feedbackMsg');
+    feedback.textContent = 'Note enregistrée ✓';
+    feedback.classList.add('show');
+
+    clearTimeout(questionFallback);
+    advanceDelay = setTimeout(goToNextQuestion, 900);
+  }
+
+  function goToNextQuestion(){
+    currentIdx += 1;
+    if(currentIdx >= PROMPTS.length){
+      showClosingCard();
+      return;
+    }
+    setPrompt(currentIdx);
+  }
+
+  function setPrompt(idx){
     const card = document.getElementById('promptCard');
     const promptText = document.getElementById('promptText');
     const qIndex = document.getElementById('qIndex');
+    const scaleRow = document.getElementById('scaleRow');
+    const feedback = document.getElementById('feedbackMsg');
+
     card.classList.add('swap');
+    clearTimeout(questionFallback);
+    clearTimeout(advanceDelay);
+
     setTimeout(()=>{
       promptText.textContent = PROMPTS[idx];
       qIndex.textContent = idx + 1;
-      dots.forEach((d,i)=> d.classList.toggle('done', i <= idx));
+      scaleRow.classList.remove('answered');
+      scaleRow.querySelectorAll('.scale-num').forEach(b=>b.classList.remove('selected'));
+      feedback.classList.remove('show');
+      card.classList.remove('swap');
+
+      // si personne ne répond, on passe à la question suivante automatiquement
+      questionFallback = setTimeout(()=>{
+        dots[idx].classList.add('done');
+        goToNextQuestion();
+      }, maxQuestionMs);
+    }, 220);
+  }
+
+  function showClosingCard(){
+    clearTimeout(questionFallback);
+    const card = document.getElementById('promptCard');
+    const eyebrow = document.getElementById('promptEyebrow');
+    const promptText = document.getElementById('promptText');
+    const scaleRow = document.getElementById('scaleRow');
+    const feedback = document.getElementById('feedbackMsg');
+
+    card.classList.add('swap');
+    setTimeout(()=>{
+      card.classList.add('closing');
+      eyebrow.textContent = 'Merci !';
+      promptText.textContent = "C'est noté. Profitez de la fête 🥂";
+      scaleRow.style.display = 'none';
+      feedback.classList.remove('show');
       card.classList.remove('swap');
     }, 220);
   }
 
   document.getElementById('stopBtn').addEventListener('click', ()=>{
     clearInterval(recordTimer);
-    clearInterval(promptTimer);
+    clearTimeout(questionFallback);
+    clearTimeout(advanceDelay);
     stopRecording();
   });
 
   function stopRecording(){
+    clearTimeout(questionFallback);
+    clearTimeout(advanceDelay);
     if(mediaRecorder && mediaRecorder.state !== 'inactive'){
       mediaRecorder.stop();
     }
@@ -657,10 +792,24 @@
     downloadBtn.href = url;
     downloadBtn.download = `mariage-charline-hugo-${Date.now()}.${ext}`;
 
+    buildRecap();
     show('result');
   }
 
+  function buildRecap(){
+    const recap = document.getElementById('recap');
+    recap.innerHTML = PROMPTS.map((q, i)=>{
+      const s = scores[i];
+      const badge = s
+        ? `<div class="recap-score">${s}</div>`
+        : `<div class="recap-score empty">—</div>`;
+      return `<div class="recap-row"><div class="recap-q">${q}</div>${badge}</div>`;
+    }).join('');
+  }
+
   document.getElementById('restartBtn').addEventListener('click', ()=>{
+    clearTimeout(questionFallback);
+    clearTimeout(advanceDelay);
     show('setup');
     setupErr.textContent = '';
   });
