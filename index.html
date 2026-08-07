@@ -7,417 +7,417 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,600;1,500&family=Work+Sans:wght@400;500;600&display=swap');
 
-  :root{
-    --ivory:#F6F0E4;
-    --paper:#FBF7EF;
-    --bordeaux:#6C2A3A;
-    --bordeaux-dark:#4E1E2A;
-    --gold:#C7A468;
-    --ink:#2B2420;
-    --blush:#E8D6C8;
-    --ok:#4E6E58;
-    --radius:22px;
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{height:100%;}
-  body{
-    margin:0;
-    background:var(--ivory);
-    color:var(--ink);
-    font-family:'Work Sans',sans-serif;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    min-height:100vh;
-    min-height:100dvh;
-    overflow:hidden;
-  }
-  .app{
-    width:100%;
-    max-width:480px;
-    height:100vh;
-    height:100dvh;
-    position:relative;
-    background:var(--ivory);
-    overflow:hidden;
-  }
-  .screen{
-    position:absolute;
-    inset:0;
-    display:flex;
-    flex-direction:column;
-    opacity:0;
-    pointer-events:none;
-    transition:opacity .5s ease;
-  }
-  .screen.active{opacity:1;pointer-events:auto;}
+:root{
+--ivory:#F6F0E4;
+--paper:#FBF7EF;
+--bordeaux:#6C2A3A;
+--bordeaux-dark:#4E1E2A;
+--gold:#C7A468;
+--ink:#2B2420;
+--blush:#E8D6C8;
+--ok:#4E6E58;
+--radius:22px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+margin:0;
+background:var(--ivory);
+color:var(--ink);
+font-family:'Work Sans',sans-serif;
+display:flex;
+align-items:center;
+justify-content:center;
+min-height:100vh;
+min-height:100dvh;
+overflow:hidden;
+}
+.app{
+width:100%;
+max-width:480px;
+height:100vh;
+height:100dvh;
+position:relative;
+background:var(--ivory);
+overflow:hidden;
+}
+.screen{
+position:absolute;
+inset:0;
+display:flex;
+flex-direction:column;
+opacity:0;
+pointer-events:none;
+transition:opacity .5s ease;
+}
+.screen.active{opacity:1;pointer-events:auto;}
 
-  h1,h2{font-family:'Fraunces',serif;font-weight:500;margin:0;}
-  .eyebrow{
-    font-family:'Work Sans',sans-serif;
-    letter-spacing:.28em;
-    text-transform:uppercase;
-    font-size:11px;
-    color:var(--bordeaux);
-    opacity:.75;
-  }
+h1,h2{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+.eyebrow{
+font-family:'Work Sans',sans-serif;
+letter-spacing:.28em;
+text-transform:uppercase;
+font-size:11px;
+color:var(--bordeaux);
+opacity:.75;
+}
 
-  /* ---------- SETUP SCREEN ---------- */
-  #setup{
-    padding:48px 32px 36px;
-    justify-content:space-between;
-    background:
-      radial-gradient(circle at 15% 8%, var(--blush) 0%, transparent 45%),
-      var(--ivory);
-  }
-  .setup-top{text-align:center;}
-  .names{
-    font-size:15px;
-    letter-spacing:.22em;
-    text-transform:uppercase;
-    color:var(--bordeaux);
-    margin-bottom:14px;
-  }
-  .names span{opacity:.5;margin:0 8px;font-style:italic;}
-  .headline{
-    font-size:38px;
-    line-height:1.1;
-    color:var(--ink);
-  }
-  .headline em{color:var(--bordeaux);font-style:italic;}
-  .sub{
-    margin-top:14px;
-    font-size:14.5px;
-    color:#6b6055;
-    line-height:1.5;
-    max-width:320px;
-    margin-left:auto;margin-right:auto;
-  }
+/* ---------- SETUP SCREEN ---------- */
+#setup{
+padding:48px 32px 36px;
+justify-content:space-between;
+background:
+radial-gradient(circle at 15% 8%, var(--blush) 0%, transparent 45%),
+var(--ivory);
+}
+.setup-top{text-align:center;}
+.names{
+font-size:15px;
+letter-spacing:.22em;
+text-transform:uppercase;
+color:var(--bordeaux);
+margin-bottom:14px;
+}
+.names span{opacity:.5;margin:0 8px;font-style:italic;}
+.headline{
+font-size:38px;
+line-height:1.1;
+color:var(--ink);
+}
+.headline em{color:var(--bordeaux);font-style:italic;}
+.sub{
+margin-top:14px;
+font-size:14.5px;
+color:#6b6055;
+line-height:1.5;
+max-width:320px;
+margin-left:auto;margin-right:auto;
+}
 
-  .divider{
-    width:40px;height:1px;background:var(--gold);
-    margin:22px auto;
-  }
+.divider{
+width:40px;height:1px;background:var(--gold);
+margin:22px auto;
+}
 
-  .field-label{
-    font-size:12px;
-    letter-spacing:.14em;
-    text-transform:uppercase;
-    color:var(--bordeaux);
-    margin-bottom:10px;
-    text-align:center;
-  }
-  .chip-row{
-    display:flex;
-    gap:10px;
-    justify-content:center;
-    flex-wrap:wrap;
-  }
-  .chip{
-    border:1px solid var(--gold);
-    background:transparent;
-    color:var(--ink);
-    padding:10px 18px;
-    border-radius:999px;
-    font-family:'Work Sans',sans-serif;
-    font-size:14px;
-    font-weight:500;
-    cursor:pointer;
-    transition:all .2s ease;
-  }
-  .chip.selected{
-    background:var(--bordeaux);
-    border-color:var(--bordeaux);
-    color:var(--paper);
-  }
+.field-label{
+font-size:12px;
+letter-spacing:.14em;
+text-transform:uppercase;
+color:var(--bordeaux);
+margin-bottom:10px;
+text-align:center;
+}
+.chip-row{
+display:flex;
+gap:10px;
+justify-content:center;
+flex-wrap:wrap;
+}
+.chip{
+border:1px solid var(--gold);
+background:transparent;
+color:var(--ink);
+padding:10px 18px;
+border-radius:999px;
+font-family:'Work Sans',sans-serif;
+font-size:14px;
+font-weight:500;
+cursor:pointer;
+transition:all .2s ease;
+}
+.chip.selected{
+background:var(--bordeaux);
+border-color:var(--bordeaux);
+color:var(--paper);
+}
 
-  .setup-mid{margin-top:8px;}
+.setup-mid{margin-top:8px;}
 
-  .facing-toggle{
-    display:flex;
-    justify-content:center;
-    margin-top:22px;
-  }
-  .facing-btn{
-    display:flex;align-items:center;gap:8px;
-    background:none;border:none;
-    color:#6b6055;font-family:'Work Sans',sans-serif;
-    font-size:13px;cursor:pointer;
-    padding:6px 10px;
-  }
-  .facing-btn svg{width:16px;height:16px;stroke:var(--bordeaux);}
+.facing-toggle{
+display:flex;
+justify-content:center;
+margin-top:22px;
+}
+.facing-btn{
+display:flex;align-items:center;gap:8px;
+background:none;border:none;
+color:#6b6055;font-family:'Work Sans',sans-serif;
+font-size:13px;cursor:pointer;
+padding:6px 10px;
+}
+.facing-btn svg{width:16px;height:16px;stroke:var(--bordeaux);}
 
-  .cta{
-    display:block;
-    width:100%;
-    border:none;
-    background:var(--bordeaux);
-    color:var(--paper);
-    font-family:'Fraunces',serif;
-    font-size:18px;
-    letter-spacing:.02em;
-    padding:18px;
-    border-radius:999px;
-    cursor:pointer;
-    transition:transform .15s ease, background .2s ease;
-  }
-  .cta:active{transform:scale(.97);}
-  .cta:disabled{opacity:.5;}
-  .cta.secondary{
-    background:transparent;
-    border:1px solid var(--bordeaux);
-    color:var(--bordeaux);
-  }
+.cta{
+display:block;
+width:100%;
+border:none;
+background:var(--bordeaux);
+color:var(--paper);
+font-family:'Fraunces',serif;
+font-size:18px;
+letter-spacing:.02em;
+padding:18px;
+border-radius:999px;
+cursor:pointer;
+transition:transform .15s ease, background .2s ease;
+}
+.cta:active{transform:scale(.97);}
+.cta:disabled{opacity:.5;}
+.cta.secondary{
+background:transparent;
+border:1px solid var(--bordeaux);
+color:var(--bordeaux);
+}
 
-  .setup-bottom{display:flex;flex-direction:column;gap:14px;}
-  .hint{
-    text-align:center;
-    font-size:12px;
-    color:#a0958a;
-  }
+.setup-bottom{display:flex;flex-direction:column;gap:14px;}
+.hint{
+text-align:center;
+font-size:12px;
+color:#a0958a;
+}
 
-  /* ---------- CAMERA / COUNTDOWN / RECORD SCREENS ---------- */
-  #countdown, #record{
-    background:var(--ink);
-  }
-  video{
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    object-fit:cover;
-    background:#111;
-  }
-  video.mirrored{ transform:scaleX(-1); }
-  .scrim-top{
-    position:absolute;top:0;left:0;right:0;
-    height:160px;
-    background:linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
-  }
-  .scrim-bottom{
-    position:absolute;bottom:0;left:0;right:0;
-    height:280px;
-    background:linear-gradient(to top, rgba(0,0,0,.75), transparent);
-  }
+/* ---------- CAMERA / COUNTDOWN / RECORD SCREENS ---------- */
+#countdown, #record{
+background:var(--ink);
+}
+video{
+position:absolute;
+inset:0;
+width:100%;
+height:100%;
+object-fit:cover;
+background:#111;
+}
+video.mirrored{ transform:scaleX(-1); }
+.scrim-top{
+position:absolute;top:0;left:0;right:0;
+height:160px;
+background:linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
+}
+.scrim-bottom{
+position:absolute;bottom:0;left:0;right:0;
+height:280px;
+background:linear-gradient(to top, rgba(0,0,0,.75), transparent);
+}
 
-  .countdown-overlay{
-    position:absolute;inset:0;
-    display:flex;flex-direction:column;
-    align-items:center;justify-content:center;
-    gap:22px;
-    z-index:5;
-  }
-  .ring-wrap{position:relative;width:170px;height:170px;}
-  .ring-wrap svg{transform:rotate(-90deg);width:170px;height:170px;}
-  .ring-bg{fill:none;stroke:rgba(255,255,255,.18);stroke-width:5;}
-  .ring-fg{fill:none;stroke:var(--gold);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1s linear;}
-  .ring-num{
-    position:absolute;inset:0;
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Fraunces',serif;
-    font-size:56px;
-    color:var(--paper);
-  }
-  .countdown-msg{
-    font-family:'Fraunces',serif;
-    font-style:italic;
-    font-size:20px;
-    color:var(--blush);
-    text-align:center;
-    padding:0 30px;
-  }
+.countdown-overlay{
+position:absolute;inset:0;
+display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+gap:22px;
+z-index:5;
+}
+.ring-wrap{position:relative;width:170px;height:170px;}
+.ring-wrap svg{transform:rotate(-90deg);width:170px;height:170px;}
+.ring-bg{fill:none;stroke:rgba(255,255,255,.18);stroke-width:5;}
+.ring-fg{fill:none;stroke:var(--gold);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1s linear;}
+.ring-num{
+position:absolute;inset:0;
+display:flex;align-items:center;justify-content:center;
+font-family:'Fraunces',serif;
+font-size:56px;
+color:var(--paper);
+}
+.countdown-msg{
+font-family:'Fraunces',serif;
+font-style:italic;
+font-size:20px;
+color:var(--blush);
+text-align:center;
+padding:0 30px;
+}
 
-  /* ---------- RECORD SCREEN ---------- */
-  #record{overflow:hidden;}
-  .rec-top{
-    position:absolute;top:0;left:0;right:0;
-    z-index:4;
-    padding:20px 22px 0;
-    display:flex;align-items:center;justify-content:space-between;
-  }
-  .rec-dot{
-    display:flex;align-items:center;gap:8px;
-    background:rgba(0,0,0,.35);
-    padding:7px 12px 7px 10px;
-    border-radius:999px;
-    color:var(--paper);
-    font-size:13px;
-    font-weight:500;
-    font-variant-numeric:tabular-nums;
-  }
-  .rec-dot .dot{
-    width:8px;height:8px;border-radius:50%;
-    background:#e0475a;
-    animation:pulse 1.1s infinite;
-  }
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
-  .stop-btn{
-    background:rgba(0,0,0,.35);
-    border:1px solid rgba(255,255,255,.4);
-    color:var(--paper);
-    font-family:'Work Sans',sans-serif;
-    font-size:13px;
-    padding:8px 16px;
-    border-radius:999px;
-    cursor:pointer;
-  }
+/* ---------- RECORD SCREEN ---------- */
+#record{overflow:hidden;}
+.rec-top{
+position:absolute;top:0;left:0;right:0;
+z-index:4;
+padding:20px 22px 0;
+display:flex;align-items:center;justify-content:space-between;
+}
+.rec-dot{
+display:flex;align-items:center;gap:8px;
+background:rgba(0,0,0,.35);
+padding:7px 12px 7px 10px;
+border-radius:999px;
+color:var(--paper);
+font-size:13px;
+font-weight:500;
+font-variant-numeric:tabular-nums;
+}
+.rec-dot .dot{
+width:8px;height:8px;border-radius:50%;
+background:#e0475a;
+animation:pulse 1.1s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+.stop-btn{
+background:rgba(0,0,0,.35);
+border:1px solid rgba(255,255,255,.4);
+color:var(--paper);
+font-family:'Work Sans',sans-serif;
+font-size:13px;
+padding:8px 16px;
+border-radius:999px;
+cursor:pointer;
+}
 
-  .rec-bottom{
-    position:absolute;bottom:0;left:0;right:0;
-    z-index:4;
-    padding:0 20px 30px;
-  }
-  .prompt-card{
-    background:rgba(251,247,239,.96);
-    border-radius:var(--radius);
-    padding:22px 22px 18px;
-    box-shadow:0 10px 30px rgba(0,0,0,.35);
-    transition:opacity .35s ease, transform .35s ease;
-  }
-  .prompt-card.swap{opacity:0;transform:translateY(8px);}
-  .prompt-eyebrow{
-    font-size:10.5px;
-    letter-spacing:.2em;
-    text-transform:uppercase;
-    color:var(--bordeaux);
-    margin-bottom:8px;
-  }
-  .prompt-q{
-    font-family:'Fraunces',serif;
-    font-size:22px;
-    line-height:1.25;
-    color:var(--ink);
-  }
-  .scale-row{
-    display:flex;
-    gap:8px;
-    margin-top:16px;
-  }
-  .scale-num{
-    flex:1;
-    text-align:center;
-    border:1px solid var(--gold);
-    border-radius:10px;
-    padding:10px 0;
-    font-family:'Fraunces',serif;
-    font-size:16px;
-    color:var(--bordeaux);
-    background:transparent;
-    cursor:pointer;
-    transition:all .2s ease;
-  }
-  .scale-num:active{transform:scale(.94);}
-  .scale-num.selected{
-    background:var(--bordeaux);
-    border-color:var(--bordeaux);
-    color:var(--paper);
-  }
-  .scale-row.answered .scale-num{pointer-events:none;}
-  .scale-row.answered .scale-num:not(.selected){
-    opacity:.35;
-  }
-  .feedback-msg{
-    height:16px;
-    margin-top:10px;
-    text-align:center;
-    font-size:12.5px;
-    font-style:italic;
-    color:var(--ok);
-    opacity:0;
-    transition:opacity .3s ease;
-  }
-  .feedback-msg.show{opacity:1;}
-  .prompt-card.closing{text-align:center;}
-  .prompt-card.closing .prompt-q{font-style:italic;}
-  .progress-dots{
-    display:flex;gap:5px;justify-content:center;margin-top:16px;
-  }
-  .progress-dots i{
-    width:5px;height:5px;border-radius:50%;
-    background:rgba(255,255,255,.3);
-  }
-  .progress-dots i.done{background:var(--gold);}
+.rec-bottom{
+position:absolute;bottom:0;left:0;right:0;
+z-index:4;
+padding:0 20px 30px;
+}
+.prompt-card{
+background:rgba(251,247,239,.96);
+border-radius:var(--radius);
+padding:22px 22px 18px;
+box-shadow:0 10px 30px rgba(0,0,0,.35);
+transition:opacity .35s ease, transform .35s ease;
+}
+.prompt-card.swap{opacity:0;transform:translateY(8px);}
+.prompt-eyebrow{
+font-size:10.5px;
+letter-spacing:.2em;
+text-transform:uppercase;
+color:var(--bordeaux);
+margin-bottom:8px;
+}
+.prompt-q{
+font-family:'Fraunces',serif;
+font-size:22px;
+line-height:1.25;
+color:var(--ink);
+}
+.scale-row{
+display:flex;
+gap:8px;
+margin-top:16px;
+}
+.scale-num{
+flex:1;
+text-align:center;
+border:1px solid var(--gold);
+border-radius:10px;
+padding:10px 0;
+font-family:'Fraunces',serif;
+font-size:16px;
+color:var(--bordeaux);
+background:transparent;
+cursor:pointer;
+transition:all .2s ease;
+}
+.scale-num:active{transform:scale(.94);}
+.scale-num.selected{
+background:var(--bordeaux);
+border-color:var(--bordeaux);
+color:var(--paper);
+}
+.scale-row.answered .scale-num{pointer-events:none;}
+.scale-row.answered .scale-num:not(.selected){
+opacity:.35;
+}
+.feedback-msg{
+height:16px;
+margin-top:10px;
+text-align:center;
+font-size:12.5px;
+font-style:italic;
+color:var(--ok);
+opacity:0;
+transition:opacity .3s ease;
+}
+.feedback-msg.show{opacity:1;}
+.prompt-card.closing{text-align:center;}
+.prompt-card.closing .prompt-q{font-style:italic;}
+.progress-dots{
+display:flex;gap:5px;justify-content:center;margin-top:16px;
+}
+.progress-dots i{
+width:5px;height:5px;border-radius:50%;
+background:rgba(255,255,255,.3);
+}
+.progress-dots i.done{background:var(--gold);}
 
-  /* ---------- RESULT SCREEN ---------- */
-  #result{
-    background:var(--ink);
-    padding:0;
-  }
-  #result video{position:static;width:100%;height:60%;object-fit:cover;}
-  .result-panel{
-    background:var(--paper);
-    flex:1;
-    border-radius:26px 26px 0 0;
-    margin-top:-26px;
-    position:relative;
-    z-index:2;
-    padding:30px 28px 26px;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-  }
-  .result-title{font-size:24px;color:var(--ink);}
-  .result-sub{font-size:13.5px;color:#7a6e62;margin-top:6px;line-height:1.5;}
-  .recap{
-    margin-top:16px;
-    max-height:26vh;
-    overflow-y:auto;
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-    padding-right:2px;
-  }
-  .recap-row{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    padding:9px 4px;
-    border-bottom:1px solid rgba(108,42,58,.1);
-  }
-  .recap-q{font-size:13px;color:var(--ink);line-height:1.35;}
-  .recap-score{
-    flex:0 0 auto;
-    min-width:28px;
-    height:28px;
-    border-radius:50%;
-    background:var(--bordeaux);
-    color:var(--paper);
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Fraunces',serif;
-    font-size:13px;
-  }
-  .recap-score.empty{
-    background:transparent;
-    border:1px dashed var(--gold);
-    color:var(--gold);
-  }
-  .result-actions{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
+/* ---------- RESULT SCREEN ---------- */
+#result{
+background:var(--ink);
+padding:0;
+}
+#result video{position:static;width:100%;height:60%;object-fit:cover;}
+.result-panel{
+background:var(--paper);
+flex:1;
+border-radius:26px 26px 0 0;
+margin-top:-26px;
+position:relative;
+z-index:2;
+padding:30px 28px 26px;
+display:flex;
+flex-direction:column;
+justify-content:space-between;
+}
+.result-title{font-size:24px;color:var(--ink);}
+.result-sub{font-size:13.5px;color:#7a6e62;margin-top:6px;line-height:1.5;}
+.recap{
+margin-top:16px;
+max-height:26vh;
+overflow-y:auto;
+display:flex;
+flex-direction:column;
+gap:8px;
+padding-right:2px;
+}
+.recap-row{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:12px;
+padding:9px 4px;
+border-bottom:1px solid rgba(108,42,58,.1);
+}
+.recap-q{font-size:13px;color:var(--ink);line-height:1.35;}
+.recap-score{
+flex:0 0 auto;
+min-width:28px;
+height:28px;
+border-radius:50%;
+background:var(--bordeaux);
+color:var(--paper);
+display:flex;align-items:center;justify-content:center;
+font-family:'Fraunces',serif;
+font-size:13px;
+}
+.recap-score.empty{
+background:transparent;
+border:1px dashed var(--gold);
+color:var(--gold);
+}
+.result-actions{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
 
-  .rec-canvas{
-    position:fixed;
-    left:-99999px;
-    top:0;
-  }
+.rec-canvas{
+position:fixed;
+left:-99999px;
+top:0;
+}
 
-  .loader{
-    position:absolute;inset:0;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--ink);
-    color:var(--blush);
-    font-family:'Fraunces',serif;
-    font-style:italic;
-    font-size:16px;
-    z-index:6;
-    text-align:center;
-    padding:0 30px;
-  }
-  .err{
-    color:#e0475a;
-    font-size:13px;
-    text-align:center;
-    margin-top:10px;
-  }
+.loader{
+position:absolute;inset:0;
+display:flex;align-items:center;justify-content:center;
+background:var(--ink);
+color:var(--blush);
+font-family:'Fraunces',serif;
+font-style:italic;
+font-size:16px;
+z-index:6;
+text-align:center;
+padding:0 30px;
+}
+.err{
+color:#e0475a;
+font-size:13px;
+text-align:center;
+margin-top:10px;
+}
 </style>
 </head>
 <body>
@@ -431,27 +431,27 @@
       <p class="sub">Levez votre pancarte, répondez à la question affichée, et laissez un mot aux mariés. On regardera tout, promis. 🥂</p>
     </div>
 
-    <div class="setup-mid">
-      <div class="divider"></div>
-      <div class="field-label">Durée de la vidéo</div>
-      <div class="chip-row" id="durationChips">
-        <button class="chip" data-val="180">3 min</button>
-        <button class="chip selected" data-val="300">5 min</button>
-        <button class="chip" data-val="600">10 min</button>
-      </div>
-      <div class="facing-toggle">
-        <button class="facing-btn" id="facingBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
-          <span id="facingLabel">Caméra arrière</span>
-        </button>
-      </div>
-    </div>
+<div class="setup-mid">
+  <div class="divider"></div>
+  <div class="field-label">Durée de la vidéo</div>
+  <div class="chip-row" id="durationChips">
+    <button class="chip" data-val="180">3 min</button>
+    <button class="chip selected" data-val="300">5 min</button>
+    <button class="chip" data-val="600">10 min</button>
+  </div>
+  <div class="facing-toggle">
+    <button class="facing-btn" id="facingBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      <span id="facingLabel">Caméra arrière</span>
+    </button>
+  </div>
+</div>
 
-    <div class="setup-bottom">
-      <button class="cta" id="startBtn">Commencer l'enregistrement</button>
-      <div class="hint">10 secondes de préparation avant le lancement</div>
-      <div class="err" id="setupErr"></div>
-    </div>
+<div class="setup-bottom">
+  <button class="cta" id="startBtn">Commencer l'enregistrement</button>
+  <div class="hint">10 secondes de préparation avant le lancement</div>
+  <div class="err" id="setupErr"></div>
+</div>
   </section>
 
   <!-- SCREEN 2 : COUNTDOWN -->
@@ -590,7 +590,7 @@
     loader.textContent = 'Ouverture de la caméra…';
     try{
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: facing } },
+        video: { facingMode: facing, width:{ideal:1080}, height:{ideal:1920} },
         audio: true
       });
     }catch(err){
@@ -643,15 +643,11 @@
 
     const recordVideo = document.getElementById('recordVideo');
     const canvas = document.getElementById('recCanvas');
-    const nativeW = recordVideo.videoWidth || 1080;
-    const nativeH = recordVideo.videoHeight || 1920;
-    // on limite la résolution d'enregistrement pour éviter les saccades sur mobile
-    const maxDim = 900;
-    const scale = Math.min(1, maxDim / Math.max(nativeW, nativeH));
-    canvas.width = Math.round(nativeW * scale);
-    canvas.height = Math.round(nativeH * scale);
-    recCtx = canvas.getContext('2d', { alpha: false });
-    initOverlayCache(canvas.width, canvas.height);
+    const vw = recordVideo.videoWidth || 1080;
+    const vh = recordVideo.videoHeight || 1920;
+    canvas.width = vw;
+    canvas.height = vh;
+    recCtx = canvas.getContext('2d');
 
     const canvasStream = canvas.captureStream(30);
     const audioTracks = stream.getAudioTracks();
@@ -687,29 +683,18 @@
     startPrompts();
   }
 
-  let bottomGrad = null;
-  let topGrad = null;
-  let cachedQLines = [];
-
-  function initOverlayCache(w, h){
-    bottomGrad = recCtx.createLinearGradient(0, h - h*0.30, 0, h);
-    bottomGrad.addColorStop(0, 'rgba(20,15,12,0)');
-    bottomGrad.addColorStop(1, 'rgba(20,15,12,0.78)');
-    topGrad = recCtx.createLinearGradient(0, 0, 0, h * 0.14);
-    topGrad.addColorStop(0, 'rgba(20,15,12,0.55)');
-    topGrad.addColorStop(1, 'rgba(20,15,12,0)');
-  }
-
-  function computeQLines(idx){
-    if(!recCtx) return [];
+  function drawLoop(){
+    if(!recActive) return;
+    const recordVideo = document.getElementById('recordVideo');
     const canvas = document.getElementById('recCanvas');
-    const w = canvas.width;
-    const pad = w * 0.06;
-    recCtx.font = `500 ${Math.round(w*0.05)}px 'Fraunces', serif`;
-    return getWrappedLines(recCtx, PROMPTS[idx], w - pad*2);
+    if(recCtx && recordVideo.videoWidth){
+      recCtx.drawImage(recordVideo, 0, 0, canvas.width, canvas.height);
+      drawOverlay(recCtx, canvas.width, canvas.height);
+    }
+    recAnimFrame = requestAnimationFrame(drawLoop);
   }
 
-  function getWrappedLines(ctx, text, maxWidth){
+  function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight){
     const words = text.split(' ');
     let line = '';
     const lines = [];
@@ -723,18 +708,8 @@
       }
     }
     if(line) lines.push(line);
-    return lines;
-  }
-
-  function drawLoop(){
-    if(!recActive) return;
-    const recordVideo = document.getElementById('recordVideo');
-    const canvas = document.getElementById('recCanvas');
-    if(recCtx && recordVideo.videoWidth){
-      recCtx.drawImage(recordVideo, 0, 0, canvas.width, canvas.height);
-      drawOverlay(recCtx, canvas.width, canvas.height);
-    }
-    recAnimFrame = requestAnimationFrame(drawLoop);
+    lines.forEach((l, i)=> ctx.fillText(l, x, y + i * lineHeight));
+    return lines.length;
   }
 
   function drawOverlay(ctx, w, h){
@@ -967,5 +942,6 @@
 
 })();
 </script>
+
 </body>
 </html>
