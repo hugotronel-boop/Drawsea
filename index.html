@@ -393,6 +393,12 @@
   }
   .result-actions{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
 
+  .rec-canvas{
+    position:fixed;
+    left:-99999px;
+    top:0;
+  }
+
   .loader{
     position:absolute;inset:0;
     display:flex;align-items:center;justify-content:center;
@@ -508,6 +514,7 @@
   </section>
 
   <div class="loader" id="loader" style="display:none;"></div>
+  <canvas class="rec-canvas" id="recCanvas"></canvas>
 </div>
 
 <script>
@@ -551,6 +558,10 @@
   let advanceDelay = null;
   let currentIdx = 0;
   let scores = [];
+  let recClosing = false;
+  let recActive = false;
+  let recAnimFrame = null;
+  let recCtx = null;
 
   // ---- duration chips ----
   document.getElementById('durationChips').addEventListener('click', e=>{
@@ -625,6 +636,18 @@
     show('record');
     chunks = [];
 
+    const recordVideo = document.getElementById('recordVideo');
+    const canvas = document.getElementById('recCanvas');
+    const vw = recordVideo.videoWidth || 1080;
+    const vh = recordVideo.videoHeight || 1920;
+    canvas.width = vw;
+    canvas.height = vh;
+    recCtx = canvas.getContext('2d');
+
+    const canvasStream = canvas.captureStream(30);
+    const audioTracks = stream.getAudioTracks();
+    const recordStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
+
     const mimeCandidates = [
       'video/mp4',
       'video/webm;codecs=vp9,opus',
@@ -639,17 +662,111 @@
     }
 
     try{
-      mediaRecorder = mimeType ? new MediaRecorder(stream, {mimeType}) : new MediaRecorder(stream);
+      mediaRecorder = mimeType ? new MediaRecorder(recordStream, {mimeType}) : new MediaRecorder(recordStream);
     }catch(e){
-      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder = new MediaRecorder(recordStream);
     }
 
     mediaRecorder.ondataavailable = e=>{ if(e.data && e.data.size > 0) chunks.push(e.data); };
     mediaRecorder.onstop = onRecordingStop;
     mediaRecorder.start();
 
+    recActive = true;
+    drawLoop();
+
     startTimer();
     startPrompts();
+  }
+
+  function drawLoop(){
+    if(!recActive) return;
+    const recordVideo = document.getElementById('recordVideo');
+    const canvas = document.getElementById('recCanvas');
+    if(recCtx && recordVideo.videoWidth){
+      recCtx.drawImage(recordVideo, 0, 0, canvas.width, canvas.height);
+      drawOverlay(recCtx, canvas.width, canvas.height);
+    }
+    recAnimFrame = requestAnimationFrame(drawLoop);
+  }
+
+  function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight){
+    const words = text.split(' ');
+    let line = '';
+    const lines = [];
+    for(const word of words){
+      const test = line ? line + ' ' + word : word;
+      if(ctx.measureText(test).width > maxWidth && line){
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if(line) lines.push(line);
+    lines.forEach((l, i)=> ctx.fillText(l, x, y + i * lineHeight));
+    return lines.length;
+  }
+
+  function drawOverlay(ctx, w, h){
+    const bandH = h * 0.30;
+    const grad = ctx.createLinearGradient(0, h - bandH, 0, h);
+    grad.addColorStop(0, 'rgba(20,15,12,0)');
+    grad.addColorStop(1, 'rgba(20,15,12,0.78)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, h - bandH, w, bandH);
+
+    const topGrad = ctx.createLinearGradient(0, 0, 0, h * 0.14);
+    topGrad.addColorStop(0, 'rgba(20,15,12,0.55)');
+    topGrad.addColorStop(1, 'rgba(20,15,12,0)');
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, w, h * 0.14);
+
+    const pad = w * 0.06;
+
+    // watermark
+    ctx.fillStyle = 'rgba(247,241,229,0.92)';
+    ctx.font = `600 ${Math.round(w*0.028)}px 'Work Sans', sans-serif`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('CHARLINE & HUGO · MARIAGE', pad, h * 0.06);
+
+    if(recClosing){
+      ctx.fillStyle = '#F6F0E4';
+      ctx.font = `italic 500 ${Math.round(w*0.052)}px 'Fraunces', serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText("Merci pour vos réponses 🥂", w/2, h - bandH * 0.45);
+      ctx.textAlign = 'left';
+      return;
+    }
+
+    const eyebrowY = h - bandH + (h * 0.075);
+    ctx.fillStyle = '#C7A468';
+    ctx.font = `600 ${Math.round(w*0.026)}px 'Work Sans', sans-serif`;
+    ctx.fillText(`QUESTION ${currentIdx + 1}/${PROMPTS.length}`, pad, eyebrowY);
+
+    ctx.fillStyle = '#F6F0E4';
+    ctx.font = `500 ${Math.round(w*0.05)}px 'Fraunces', serif`;
+    const qLines = wrapCanvasText(ctx, PROMPTS[currentIdx], pad, eyebrowY + h*0.065, w - pad*2, h*0.062);
+
+    const score = scores[currentIdx];
+    if(score){
+      const badgeY = eyebrowY + h*0.065 + qLines * (h*0.062) + h*0.045;
+      const r = w * 0.032;
+      ctx.beginPath();
+      ctx.arc(pad + r, badgeY - r*0.35, r, 0, Math.PI*2);
+      ctx.fillStyle = '#6C2A3A';
+      ctx.fill();
+      ctx.fillStyle = '#F6F0E4';
+      ctx.font = `600 ${Math.round(w*0.032)}px 'Fraunces', serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(score), pad + r, badgeY - r*0.35 + w*0.002);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+
+      ctx.fillStyle = '#C7A468';
+      ctx.font = `500 ${Math.round(w*0.026)}px 'Work Sans', sans-serif`;
+      ctx.fillText('note donnée', pad + r*2.4, badgeY - r*0.15);
+    }
   }
 
   function startTimer(){
@@ -679,6 +796,7 @@
 
     scores = new Array(PROMPTS.length).fill(null);
     currentIdx = 0;
+    recClosing = false;
     // le temps max avant passage automatique si personne ne répond
     maxQuestionMs = Math.max((duration / PROMPTS.length) * 1000, 12000);
 
@@ -746,6 +864,7 @@
 
   function showClosingCard(){
     clearTimeout(questionFallback);
+    recClosing = true;
     const card = document.getElementById('promptCard');
     const eyebrow = document.getElementById('promptEyebrow');
     const promptText = document.getElementById('promptText');
@@ -773,6 +892,8 @@
   function stopRecording(){
     clearTimeout(questionFallback);
     clearTimeout(advanceDelay);
+    recActive = false;
+    if(recAnimFrame) cancelAnimationFrame(recAnimFrame);
     if(mediaRecorder && mediaRecorder.state !== 'inactive'){
       mediaRecorder.stop();
     }
