@@ -518,8 +518,8 @@ margin-top:10px;
         <div class="recap" id="recap"></div>
       </div>
       <div class="result-actions">
-        <a class="cta" id="downloadBtn" download="mariage-charline-hugo.webm" style="text-align:center;text-decoration:none;">Télécharger la vidéo</a>
-        <button class="cta secondary" id="restartBtn">Nouvel enregistrement</button>
+      <a class="cta" id="downloadBtn" download="mariage-charline-hugo.mp4">        
+      <button class="cta secondary" id="restartBtn">Nouvel enregistrement</button>
       </div>
     </div>
   </section>
@@ -662,7 +662,9 @@ margin-top:10px;
     const recordStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
 
 const mimeCandidates = [
-  'video/webm;codecs=vp8,opus',
+  'video/mp4',
+  'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+  'video/webm;codecs=h264',
   'video/webm'
 ];
     let mimeType = '';
@@ -912,17 +914,16 @@ const mimeCandidates = [
 
   function onRecordingStop(){
     if(stream){ stream.getTracks().forEach(t=>t.stop()); }
-    const type = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'video/webm';
+    const type = mediaRecorder.mimeType || 'video/mp4';
     const blob = new Blob(chunks, {type});
     const url = URL.createObjectURL(blob);
 
     const resultVideo = document.getElementById('resultVideo');
     resultVideo.src = url;
 
-    const ext = type.includes('mp4') ? 'mp4' : 'webm';
-    const downloadBtn = document.getElementById('downloadBtn');
-    downloadBtn.href = url;
-    downloadBtn.download = `mariage-charline-hugo-${Date.now()}.${ext}`;
+const ext = type.includes('mp4') ? 'mp4' : 'webm';
+
+downloadBtn.download = `mariage-charline-hugo-${Date.now()}.${ext}`;
 
     buildRecap();
     show('result');
