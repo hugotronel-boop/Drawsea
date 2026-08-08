@@ -601,7 +601,7 @@ margin-top:10px;
     loader.textContent = 'Ouverture de la caméra…';
     try{
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
+        video: { facingMode: facing, width:{ideal:1920}, height:{ideal:1080} },
         audio: true
       });
     }catch(err){
@@ -654,8 +654,8 @@ margin-top:10px;
 
     const recordVideo = document.getElementById('recordVideo');
     const canvas = document.getElementById('recCanvas');
-    const nativeW = recordVideo.videoWidth || 1280;
-    const nativeH = recordVideo.videoHeight || 720;
+    const nativeW = recordVideo.videoWidth || 1920;
+    const nativeH = recordVideo.videoHeight || 1080;
     // on limite la résolution d'enregistrement pour éviter les saccades sur mobile
     const maxDim = 1280;
     const scale = Math.min(1, maxDim / nativeW);
